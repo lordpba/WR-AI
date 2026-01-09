@@ -1,0 +1,88 @@
+:root {
+  --bg-dark: #0f1115;
+  --bg-card: rgba(30, 34, 45, 0.6);
+  --bg-card-hover: rgba(40, 44, 55, 0.8);
+  --primary: #00e0ff;
+  --primary-glow: rgba(0, 224, 255, 0.3);
+  --accent: #ff0055;
+  --text-main: #ffffff;
+  --text-muted: #8b9bb4;
+  --success: #00ff9d;
+  --warning: #ffb800;
+  --danger: #ff4757;
+  
+  --glass-border: 1px solid rgba(255, 255, 255, 0.1);
+  --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+  
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+body {
+  margin: 0;
+  background-color: var(--bg-dark);
+  background-image: 
+    radial-gradient(circle at 10% 20%, rgba(0, 224, 255, 0.05) 0%, transparent 40%),
+    radial-gradient(circle at 90% 80%, rgba(255, 0, 85, 0.05) 0%, transparent 40%);
+  color: var(--text-main);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg-dark);
+}
+::-webkit-scrollbar-thumb {
+  background: #2a2e3b;
+  border-radius: 4px;
+}
+
+/* Layout Utilities */
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 1.5rem;
+  padding: 1.5rem;
+  max-width: 1600px;
+  margin: 0 auto;
+}
+
+.card {
+  background: var(--bg-card);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: var(--glass-border);
+  border-radius: 16px;
+  padding: 1.5rem;
+  box-shadow: var(--glass-shadow);
+  transition: transform 0.2s, background 0.2s;
+}
+
+/* Animations */
+@keyframes pulse-glow {
+  0% { box-shadow: 0 0 0 0 rgba(0, 224, 255, 0.4); }
+  70% { box-shadow: 0 0 0 10px rgba(0, 224, 255, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(0, 224, 255, 0); }
+}
+
+.status-indicator {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--text-muted);
+}
+.status-indicator.running {
+  background: var(--success);
+  box-shadow: 0 0 10px var(--success);
+  animation: pulse-glow 2s infinite;
+}
+.status-indicator.stop {
+  background: var(--warning);
+}
+.status-indicator.fault {
+  background: var(--danger);
+  animation: pulse-glow 1s infinite;
+}

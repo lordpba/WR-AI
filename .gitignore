@@ -1,0 +1,19 @@
+# System
+.DS_Store
+Thumbs.db
+
+# Python
+backend/venv/
+backend/__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Node
+frontend/node_modules/
+frontend/dist/
+frontend/.env.local
+.env
+
+# IDE
+.vscode/
+.idea/

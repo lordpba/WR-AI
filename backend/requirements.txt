@@ -1,0 +1,7 @@
+fastapi
+uvicorn
+pandas
+numpy
+python-multipart
+# For simpler cors handling
+python-multipart
