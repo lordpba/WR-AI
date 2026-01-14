@@ -24,11 +24,14 @@ if [ ! -d "venv" ]; then
     echo "ℹ️  Virtual environment not found. Creating venv..."
     python3 -m venv venv
     source venv/bin/activate
-    echo "📦 Installing dependencies..."
-    pip install -r requirements.txt
 else
     source venv/bin/activate
 fi
+
+# Always install/update dependencies
+echo "📦 Checking/Installing dependencies..."
+pip install -r requirements.txt
+
 uvicorn main:app --reload --port 8000 &
 BACKEND_PID=$!
 cd ..

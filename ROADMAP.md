@@ -12,11 +12,11 @@ Di seguito il dettaglio dei moduli pianificati.
 - Monitoraggio trend energetici (kW).
 - Analisi Pareto cause fermo.
 
-## 🚧 Modulo 2: Anomaly Detection (Early Warning)
+## ✅ Modulo 2: Anomaly Detection (Early Warning) - COMPLETATO
 **Obiettivo**: Intercettare derive meccaniche/processo prima del guasto.
-- Algoritmi ML su segnali (correnti, temp).
-- Alert con severità e trend.
-- Riduzione micro-fermate e scarti imprevisti.
+- Algoritmi ML su segnali (correnti, temp) -> **Implemented: Isolation Forest**.
+- Alert con severità e trend -> **Implemented: Real-time Risk Score**.
+- Monitoraggio Vibrazioni/Temperatura simulate via "Serial Port Adapter".
 
 ## 📅 Modulo 3: Diagnosi Guidata
 **Obiettivo**: Ridurre MTTR e standardizzare il troubleshooting.

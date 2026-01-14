@@ -14,6 +14,12 @@ class PLCSimulator:
         self.energy_counter_kwh = 12500.0 # Starting offset
         self.current_power_kw = 0.0
         
+        # Module 2: Anomaly Signals
+        self.temperature = 45.0 # Celsius
+        self.vibration = 0.5 # mm/s
+        self.anomaly_drift = 0.0 # Simulated wear factor (0.0 to 1.0)
+        self.active_alerts = []
+        
         # Simulation parameters
         self.recipes = {
             "Recipe_A": {"target_speed": 120, "power_base": 45.0},
@@ -94,12 +100,36 @@ class PLCSimulator:
         # Power (kW) * time (h). Update is 1 sec approx -> 1/3600 h.
         self.energy_counter_kwh += self.current_power_kw / 3600.0
         
+        # --- Module 2: Anomaly Simulation ---
+        # Simulate drift (wear & tear)
+        if self.state == "RUN" and random.random() < 0.05:
+            self.anomaly_drift += 0.01 # Wear increases
+            
+        # Reset drift on Maintenance (simulated by Long Stop or Fault fixed)
+        if self.state == "FAULT" and random.random() < 0.05:
+             self.anomaly_drift = 0.0
+
+        # Physics simulation
+        # Temp increases with power and drift
+        target_temp = 45.0 + (self.current_power_kw * 0.4) + (self.anomaly_drift * 40.0)
+        # Simple smoothing
+        self.temperature += (target_temp - self.temperature) * 0.1 + random.uniform(-0.5, 0.5)
+        
+        # Vibration increases with speed and drift
+        target_vib = (self.speed / 100.0) + (self.anomaly_drift * 8.0)
+        self.vibration = target_vib + random.uniform(0, 0.3)
+        
+        self._check_anomalies()
+        # ------------------------------------
+        
         # Log metrics (limit history size)
         snapshot = {
             "timestamp": datetime.now().isoformat(),
             "state": self.state,
             "speed": round(self.speed, 1),
             "power": round(self.current_power_kw, 2),
+            "temperature": round(self.temperature, 1),
+            "vibration": round(self.vibration, 2),
             "produced": int(self.total_produced),
             "scrap": int(self.total_scarp)
         }
@@ -107,12 +137,30 @@ class PLCSimulator:
         if len(self.history) > 3600: # keep last hour roughly
             self.history.pop(0)
             
+    def _check_anomalies(self):
+        self.active_alerts = []
+        
+        # Rule-based Anomaly Detection (POC)
+        # In Module 2, we simulate this interception before failure
+        if self.temperature > 95.0:
+            self.active_alerts.append({"type": "critical", "message": "CRITICAL: Overheating Detect", "value": f"{round(self.temperature, 1)}°C"})
+        elif self.temperature > 80.0:
+             self.active_alerts.append({"type": "warning", "message": "Warning: High Temp Drift", "value": f"{round(self.temperature, 1)}°C"})
+             
+        if self.vibration > 8.0:
+             self.active_alerts.append({"type": "critical", "message": "CRITICAL: Motor Imbalance", "value": f"{round(self.vibration, 2)}mm/s"})
+        elif self.vibration > 4.0:
+             self.active_alerts.append({"type": "warning", "message": "Early Warning: Vibration", "value": f"{round(self.vibration, 2)}mm/s"})
+
     def get_status(self):
         return {
             "state": self.state,
             "recipe": self.current_recipe,
             "speed": round(self.speed, 1),
             "power": round(self.current_power_kw, 2),
+            "temperature": round(self.temperature, 1),
+            "vibration": round(self.vibration, 2),
+            "alerts": self.active_alerts,
             "energy_kwh": round(self.energy_counter_kwh, 2),
             "produced": int(self.total_produced),
             "scrap": int(self.total_scarp),
@@ -164,3 +212,6 @@ class PLCSimulator:
              {"reason": "Motor Overload", "count": 2, "duration_min": 20},
              {"reason": "quality_check_fail", "count": 8, "duration_min": 15},
          ]
+
+# Singleton Instance
+simulator = PLCSimulator()

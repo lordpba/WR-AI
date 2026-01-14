@@ -1,7 +1,9 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import asyncio
-from simulator import PLCSimulator
+from modules.foundation.simulator import simulator
+from modules.foundation.router import router as foundation_router
+from modules.anomaly_detection.router import router as anomaly_router
 
 app = FastAPI()
 
@@ -14,34 +16,25 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-simulator = PLCSimulator()
+# Include Routers
+app.include_router(foundation_router)
+app.include_router(anomaly_router)
+
+from modules.anomaly_detection.service import service as anomaly_service
 
 @app.on_event("startup")
 async def startup_event():
     # Start simulation loop in background
     asyncio.create_task(run_simulation())
+    # Start Anomaly Service Loop
+    asyncio.create_task(anomaly_service.start_loop())
 
 async def run_simulation():
     while True:
         simulator.update()
         await asyncio.sleep(1)
 
-@app.get("/api/status")
-def get_status():
-    return simulator.get_status()
-
-@app.get("/api/metrics")
-def get_metrics():
-    # Return last 60 seconds for live charts
-    data = simulator.history[-60:] if len(simulator.history) > 60 else simulator.history
-    return {
-        "history": data
-    }
-
-@app.get("/api/pareto")
-def get_pareto():
-    return simulator.get_pareto_data()
-
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
+

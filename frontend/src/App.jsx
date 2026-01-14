@@ -1,11 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { Activity, Zap, Box, AlertTriangle, Settings, RefreshCw } from 'lucide-react';
-import { KPIWidget } from './components/KPIWidget';
-import { OEEGauge } from './components/OEEGauge';
-import { EnergyChart } from './components/EnergyChart';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
+import { Activity, Zap, Box, AlertTriangle, Settings, RefreshCw, LayoutDashboard, BrainCircuit } from 'lucide-react';
+import { Dashboard } from './modules/foundation/Dashboard';
+import { AnomalyDashboard } from './modules/anomaly_detection/AnomalyDashboard';
 
 function App() {
+  const [activeModule, setActiveModule] = useState('foundation');
   const [status, setStatus] = useState(null);
   const [history, setHistory] = useState([]);
   const [pareto, setPareto] = useState([]);
@@ -13,20 +12,23 @@ function App() {
 
   const fetchData = async () => {
     try {
-      const [statusRes, metricsRes, paretoRes] = await Promise.all([
-        fetch('http://localhost:8000/api/status'),
-        fetch('http://localhost:8000/api/metrics'),
-        fetch('http://localhost:8000/api/pareto')
-      ]);
-
+      // Always fetch status for the header
+      const statusRes = await fetch('http://localhost:8000/api/status');
       const statusData = await statusRes.json();
-      const metricsData = await metricsRes.json();
-      const paretoData = await paretoRes.json();
-
       setStatus(statusData);
-      setHistory(metricsData.history);
-      setPareto(paretoData);
       setConnected(true);
+
+      // Only fetch heavy dashboard data if we are on the foundation tab
+      if (activeModule === 'foundation') {
+          const [metricsRes, paretoRes] = await Promise.all([
+            fetch('http://localhost:8000/api/metrics'),
+            fetch('http://localhost:8000/api/pareto')
+          ]);
+          const metricsData = await metricsRes.json();
+          const paretoData = await paretoRes.json();
+          setHistory(metricsData.history);
+          setPareto(paretoData);
+      }
     } catch (e) {
       console.error("Connection failed", e);
       setConnected(false);
@@ -35,12 +37,13 @@ function App() {
 
   useEffect(() => {
     // Poll every 1 second
+    fetchData(); // Fetch immediately
     const interval = setInterval(fetchData, 1000);
     return () => clearInterval(interval);
-  }, []);
+  }, [activeModule]); // Re-fetch when module changes
 
   if (!status) return (
-    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', color: 'white' }}>
       <div>Waiting for Backend...</div>
     </div>
   );
@@ -49,21 +52,65 @@ function App() {
     <div className="app">
       {/* Header */}
       <header style={{
-        padding: '1.5rem 2rem',
+        padding: '0 2rem',
+        height: '80px',
         borderBottom: 'var(--glass-border)',
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
-        background: 'rgba(15, 17, 21, 0.8)',
+        background: 'rgba(15, 17, 21, 0.95)',
         backdropFilter: 'blur(10px)',
         position: 'sticky',
         top: 0,
         zIndex: 10
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <div style={{ fontWeight: '900', fontSize: '1.5rem', letterSpacing: '-1px' }}>
-            WR<span style={{ color: 'var(--primary)' }}>-AI</span>
-          </div>
+        {/* Left: Logo & Machine Info */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '2rem' }}>
+            <div style={{ fontWeight: '900', fontSize: '1.5rem', letterSpacing: '-1px' }}>
+                WR<span style={{ color: 'var(--primary)' }}>-AI</span>
+            </div>
+            
+            {/* Module Navigation */}
+            <nav style={{ display: 'flex', gap: '0.5rem', background: 'rgba(255,255,255,0.03)', padding: '0.25rem', borderRadius: '8px' }}>
+                <button 
+                    onClick={() => setActiveModule('foundation')}
+                    style={{ 
+                        display: 'flex', alignItems: 'center', gap: '0.5rem',
+                        padding: '0.5rem 1rem', 
+                        borderRadius: '6px', 
+                        border: 'none', 
+                        background: activeModule === 'foundation' ? 'var(--primary)' : 'transparent',
+                        color: activeModule === 'foundation' ? 'white' : 'var(--text-muted)',
+                        cursor: 'pointer',
+                        fontWeight: '500',
+                        transition: 'all 0.2s'
+                    }}
+                >
+                    <LayoutDashboard size={16} />
+                    Foundation
+                </button>
+                <button 
+                    onClick={() => setActiveModule('anomaly')}
+                    style={{ 
+                        display: 'flex', alignItems: 'center', gap: '0.5rem',
+                        padding: '0.5rem 1rem', 
+                        borderRadius: '6px', 
+                        border: 'none', 
+                        background: activeModule === 'anomaly' ? 'var(--primary)' : 'transparent',
+                        color: activeModule === 'anomaly' ? 'white' : 'var(--text-muted)',
+                        cursor: 'pointer',
+                        fontWeight: '500',
+                        transition: 'all 0.2s'
+                    }}
+                >
+                    <BrainCircuit size={16} />
+                    Anomaly Detection
+                </button>
+            </nav>
+        </div>
+
+        {/* Right: Status */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
           <div style={{
             padding: '0.25rem 0.75rem',
             borderRadius: '20px',
@@ -73,9 +120,6 @@ function App() {
           }}>
             LINE 01 • {status.recipe}
           </div>
-        </div>
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <div className={`status-indicator ${status.state.toLowerCase()}`} />
             <span style={{ fontWeight: 'bold' }}>{status.state}</span>
@@ -84,67 +128,15 @@ function App() {
         </div>
       </header>
 
-      {/* Main Dashboard */}
-      <main className="dashboard-grid">
-
-        {/* Row 1: KPI Widgets (Span 3 each) */}
-        <div style={{ gridColumn: 'span 3' }}>
-          <KPIWidget
-            title="Current Speed"
-            value={status.speed}
-            unit="pcs/min"
-            icon={Activity}
-          />
-        </div>
-        <div style={{ gridColumn: 'span 3' }}>
-          <KPIWidget
-            title="Production"
-            value={status.produced}
-            unit="pcs"
-            icon={Box}
-          />
-        </div>
-        <div style={{ gridColumn: 'span 3' }}>
-          <KPIWidget
-            title="Scrap"
-            value={status.scrap}
-            unit="pcs"
-            icon={AlertTriangle}
-          />
-        </div>
-        <div style={{ gridColumn: 'span 3' }}>
-          <KPIWidget
-            title="Total Energy"
-            value={status.energy_kwh}
-            unit="kWh"
-            icon={Zap}
-          />
-        </div>
-
-        {/* Row 2: OEE Gauge (3) + Energy Chart (6) + Pareto (3) */}
-        <OEEGauge value={status.oee_percent} />
-
-        <EnergyChart data={history} />
-
-        {/* Pareto Chart Widget */}
-        <div className="card" style={{ gridColumn: 'span 3', height: '350px' }}>
-          <h3 style={{ marginBottom: '1rem', color: 'var(--text-muted)' }}>Top Stop Causes</h3>
-          <ResponsiveContainer width="100%" height={280}>
-            <BarChart data={pareto} layout="vertical" margin={{ left: 40 }}>
-              <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="rgba(255,255,255,0.1)" />
-              <XAxis type="number" hide />
-              <YAxis dataKey="reason" type="category" width={80} tick={{ fontSize: 10, fill: '#fff' }} />
-              <Tooltip cursor={{ fill: 'rgba(255,255,255,0.05)' }} contentStyle={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--glass-border)' }} />
-              <Bar dataKey="duration_min" fill="var(--warning)" radius={[0, 4, 4, 0]}>
-                {pareto.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={index === 0 ? 'var(--danger)' : 'var(--warning)'} />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-
-      </main>
+      {/* Main Content Area */}
+      {activeModule === 'foundation' && (
+          <Dashboard status={status} history={history} pareto={pareto} />
+      )}
+      
+      {activeModule === 'anomaly' && (
+          <AnomalyDashboard />
+      )}
+      
     </div>
   );
 }
