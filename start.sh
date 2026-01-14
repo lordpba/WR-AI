@@ -10,12 +10,25 @@ echo "==========================================="
 # Start Backend
 echo "📡 Starting Backend (Python/FastAPI)..."
 cd backend
-# Check if venv exists, if not warn (but assume user followed setup)
-if [ ! -d "venv" ]; then
-    echo "⚠️  Virtual environment not found in backend/venv. Please run setup first."
-    exit 1
+# Check if .env exists, if not create it
+if [ ! -f ".env" ]; then
+    echo "ℹ️  .env file not found. Creating default .env..."
+    cat > .env << 'EOF'
+# Backend Configuration
+DATABASE_URL=sqlite:///./test.db
+DEBUG=true
+EOF
 fi
-source venv/bin/activate
+# Check if venv exists, if not create it
+if [ ! -d "venv" ]; then
+    echo "ℹ️  Virtual environment not found. Creating venv..."
+    python3 -m venv venv
+    source venv/bin/activate
+    echo "📦 Installing dependencies..."
+    pip install -r requirements.txt
+else
+    source venv/bin/activate
+fi
 uvicorn main:app --reload --port 8000 &
 BACKEND_PID=$!
 cd ..
@@ -26,6 +39,14 @@ sleep 2
 # Start Frontend
 echo "💻 Starting Frontend (React/Vite)..."
 cd frontend
+# Check if .env exists, if not create it
+if [ ! -f ".env" ]; then
+    echo "ℹ️  .env file not found. Creating default .env..."
+    cat > .env << 'EOF'
+# Frontend Configuration
+VITE_API_URL=http://localhost:8000
+EOF
+fi
 if [ ! -d "node_modules" ]; then
     echo "⚠️  node_modules not found. Running npm install..."
     npm install
