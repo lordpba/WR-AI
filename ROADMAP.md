@@ -1,67 +1,67 @@
 # WR-AI Project Roadmap & Modules
 
-Il sistema WR-AI è concepito come un "layer intelligente" che evolve attraverso 10 moduli progressivi.
-Di seguito il dettaglio dei moduli pianificati.
+The WR-AI system is designed as an "intelligent layer" that evolves through 10 progressive modules.
+Below is the detail of the planned modules.
 
 ---
 
-## ✅ Modulo 1: Dashboard OEE + Energia (Foundation) - COMPLETATO
-**Obiettivo**: Misurazione e trasparenza operativa.
-- Dashboard real-time (React).
-- Calcolo OEE (Availability, Performance, Quality).
-- Monitoraggio trend energetici (kW).
-- Analisi Pareto cause fermo.
+## ✅ Module 1: OEE + Energy Dashboard (Foundation) - COMPLETED
+**Objective**: Operational measurement and transparency.
+- Real-time dashboard (React).
+- OEE calculation (Availability, Performance, Quality).
+- Energy trend monitoring (kW).
+- Pareto analysis of downtime causes.
 
-## ✅ Modulo 2: Anomaly Detection (Early Warning) - COMPLETATO
-**Obiettivo**: Intercettare derive meccaniche/processo prima del guasto.
-- Algoritmi ML su segnali (correnti, temp) -> **Implemented: Isolation Forest**.
-- Alert con severità e trend -> **Implemented: Real-time Risk Score**.
-- Monitoraggio Vibrazioni/Temperatura simulate via "Serial Port Adapter".
+## ✅ Module 2: Anomaly Detection (Early Warning) - COMPLETED
+**Objective**: Intercept mechanical/process drifts before failure.
+- ML algorithms on signals (currents, temperature) -> **Implemented: Isolation Forest**.
+- Alerts with severity and trend -> **Implemented: Real-time Risk Score**.
+- Vibration/Temperature monitoring simulated via "Serial Port Adapter".
 
-## 📅 Modulo 3: Diagnosi Guidata
-**Obiettivo**: Ridurre MTTR e standardizzare il troubleshooting.
-- Sistema Rule-based + Knowledge Base.
-- Checklist contestuali per ogni codice allarme.
-- Supporto operatori junior.
+## 📅 Module 3: Guided Diagnostics
+**Objective**: Reduce MTTR and standardize troubleshooting.
+- Rule-based system + Knowledge Base.
+- Contextual checklists for each alarm code.
+- Junior operator support.
 
-## 📅 Modulo 4: Manutenzione Predittiva
-**Obiettivo**: Stima rischio guasto e vita residua (RUL).
-- Integrazione storico manutenzioni.
-- Previsione finestre di intervento ottimali.
-- Gestione proattiva ricambi.
+## 📅 Module 4: Predictive Maintenance
+**Objective**: Estimate failure risk and remaining useful life (RUL).
+- Integration of maintenance history.
+- Prediction of optimal intervention windows.
+- Proactive spare parts management.
 
-## 📅 Modulo 5: Energy Analytics Avanzato
-**Obiettivo**: Identificazione sprechi e "Signature" energetica.
-- Analisi consumo per fase/ricetta.
-- Alert su consumi anomali (es. stand-by eccessivo).
-- Suggerimenti modalità Eco.
+## 📅 Module 5: Advanced Energy Analytics
+**Objective**: Identify waste and energy "signature".
+- Consumption analysis per phase/recipe.
+- Alerts on anomalous consumption (e.g., excessive standby).
+- Eco-mode suggestions.
 
-## 📅 Modulo 6: Computer Vision (Quality)
-**Obiettivo**: Controllo qualità automatico.
-- Riconoscimento difetti visivi (deformazioni, errori assemblaggio).
-- Correlazione difetti-parametri processo.
-- Riduzione scarti e rilavorazioni.
+## 📅 Module 6: Computer Vision (Quality)
+**Objective**: Automatic quality control.
+- Recognition of visual defects (deformations, assembly errors).
+- Correlation of defects with process parameters.
+- Scrap and rework reduction.
 
-## 📅 Modulo 7: Auto-tuning Setpoint (Human-in-the-loop)
-**Obiettivo**: Ottimizzazione parametri di processo.
-- L'AI propone aggiustamenti ai setpoint (A/B testing).
-- Focus su trade-off Qualità/Energia/Throughput.
-- Approvazione finale operatore.
+## 📅 Module 7: Auto-tuning Setpoint (Human-in-the-loop)
+**Objective**: Process parameter optimization.
+- AI proposes setpoint adjustments (A/B testing).
+- Focus on Quality/Energy/Throughput trade-offs.
+- Final operator approval.
 
-## 📅 Modulo 8: Copilota Conversazionale (RAG LLM)
-**Obiettivo**: Assistente virtuale per manualistica e diagnosi.
-- Chatbot addestrato su manuali tecnici e log macchina.
-- Q&A immediato per operatori.
-- Citazione fonti e procedure di sicurezza.
+## 📅 Module 8: Conversational Copilot (RAG LLM)
+**Objective**: Virtual assistant for manuals and diagnostics.
+- Chatbot trained on technical manuals and machine logs.
+- Immediate Q&A for operators.
+- Source citation and safety procedures.
 
-## 📅 Modulo 9: Scheduling Lotti & Changeover
-**Obiettivo**: Ottimizzazione sequenza produzione.
-- Minimizzazione tempi di cambio formato (Changeover)
-- Piani alternativi (A/B) basati su vincoli e priorità.
-- Riduzione lead time.
+## 📅 Module 9: Lot Scheduling & Changeover
+**Objective**: Production sequence optimization.
+- Minimization of format changeover times.
+- Alternative plans (A/B) based on constraints and priorities.
+- Lead time reduction.
 
-## 📅 Modulo 10: Digital Twin Simulativo
-**Obiettivo**: Simulazione "What-if" offline.
-- Modello virtuale (Twin) della linea.
-- Test strategie (velocità, manutenzione) senza rischi reali.
-- Ottimizzazione multi-KPI.
+## 📅 Module 10: Simulative Digital Twin
+**Objective**: "What-if" simulation offline.
+- Virtual model (Twin) of the production line.
+- Strategy testing (speed, maintenance) without real-world risks.
+- Multi-KPI optimization.
