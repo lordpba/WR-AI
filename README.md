@@ -11,12 +11,16 @@ Watch the interface in action:
 
 ## 🚀 What’s Included Today
 - **Module 1 – Foundation & OEE**: Real-time machine status, OEE (Availability/Performance/Quality), energy analytics, Pareto of downtime causes.
-- **Module 2 – Anomaly Detection**: Isolation Forest risk scoring on vibration/temperature/power; historical charts with clickable anomalies; debounced alerts.
+- **Module 2 – Anomaly Detection**: 
+  - **Real-time Statistical Baseline**: Lightweight monitoring with rolling statistics (mean, std, min/max) and visual bands on charts
+  - **On-Demand ML Analysis**: Choice of algorithms (Isolation Forest, One-Class SVM, DBSCAN) for deeper batch analysis
+  - **Flexible Detection**: Statistical thresholds for continuous monitoring, ML models for scheduled or manual deep analysis
+  - Historical charts with clickable anomaly markers and debounced alerts
 - **Module 3 – Guided Diagnosis (LLM)**: Dual LLM (Ollama default, Gemini optional), manual/RAG context, anomaly context injection, chat UI, and per-anomaly chat history saved to SQLite.
 
 ## 🛠 Architecture & Stack
-- **Backend**: FastAPI, modular (foundation, anomaly_detection, guided_diagnosis), IsolationForest, logging, SQLite persistence at [backend/modules/anomaly_detection/anomaly_data.db](backend/modules/anomaly_detection/anomaly_data.db).
-- **Frontend**: React (Vite), Recharts, Lucide icons, Error Boundary wrapper for crash-safe UI.
+- **Backend**: FastAPI, modular (foundation, anomaly_detection, guided_diagnosis), statistical baseline + multiple ML algorithms (Isolation Forest, One-Class SVM, DBSCAN), logging, SQLite persistence at [backend/modules/anomaly_detection/anomaly_data.db](backend/modules/anomaly_detection/anomaly_data.db).
+- **Frontend**: React (Vite), Recharts with statistical bands visualization, Lucide icons, Error Boundary wrapper for crash-safe UI.
 - **Config**: Environment variables via [backend/.env.example](backend/.env.example); default LLM provider is Ollama (`OLLAMA_MODEL=llama3.1:latest`).
 
 ## 📦 Installation & Setup
@@ -40,7 +44,11 @@ This will set up the Python venv, install backend/frontend deps, run FastAPI on 
 
 ## 🧭 Using the POC
 - **Monitor**: Foundation dashboard shows live OEE, power, and Pareto data.
-- **Detect**: Anomaly dashboard shows historical charts; red points or event rows are clickable to open diagnosis.
+- **Detect**: 
+  - Anomaly dashboard shows real-time statistical monitoring with visual bands (mean ± 2.5σ)
+  - Statistical anomalies are automatically flagged and shown as red markers on charts
+  - Click "ML Analysis" button to run deeper analysis with selectable algorithms
+  - Red points or event rows are clickable to open diagnosis
 - **Diagnose**: Guided Diagnosis chat auto-injects anomaly context; chats are persisted per anomaly and retrievable via `/api/anomaly/events/{id}/chat`.
 
 ## 🔌 Key APIs
@@ -48,6 +56,10 @@ This will set up the Python venv, install backend/frontend deps, run FastAPI on 
 - `GET /api/anomaly/events/{id}` – single anomaly with details
 - `GET /api/anomaly/events/{id}/chat` – chat history for an anomaly
 - `POST /api/anomaly/events/{id}/chat` – append chat message (role, content)
+- `GET /api/anomaly/stats` – current statistical baseline statistics (mean, std, bounds)
+- `GET /api/anomaly/ml/algorithms` – available ML algorithms with descriptions
+- `POST /api/anomaly/ml/analyze` – run on-demand ML analysis (algorithm, window_size, params)
+- `GET /api/anomaly/ml/last-analysis` – get most recent ML analysis result
 - `POST /api/diagnosis/analyze` – run LLM diagnosis (supports `anomaly_id` to store chat)
 
 ## 🔮 Future Roadmap

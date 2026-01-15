@@ -2,7 +2,7 @@ import asyncio
 import logging
 from typing import List, Dict
 from .serial_adapter import serial_source
-from .model import anomaly_model
+from .statistical_baseline import statistical_baseline
 from .database import init_database, save_anomaly_event, get_anomaly_events
 
 logger = logging.getLogger(__name__)
@@ -25,34 +25,44 @@ class AnomalyService:
         
     async def start_loop(self):
         self.running = True
-        logger.info("🕵️ Anomaly Detection Loop Started")
+        logger.info("🕵️ Anomaly Detection Loop Started (Statistical Baseline Mode)")
         while self.running:
             data = serial_source.read_data()
             if data:
-                # Extract features for ML
-                features = [data['temperature'], data['vibration'], data['power']]
+                # Use statistical baseline for real-time monitoring
+                analysis = statistical_baseline.add_data_point(
+                    data['temperature'],
+                    data['vibration'],
+                    data['power']
+                )
                 
-                # Get prediction
-                risk_score, status = anomaly_model.add_data_point(features)
-                
-                # Enhance data packet
-                data['anomaly_score'] = risk_score
-                data['status'] = status
-                data['model_ready'] = anomaly_model.is_trained
+                # Enhance data packet with analysis results
+                data['anomaly_score'] = analysis['risk_score']
+                data['status'] = analysis['status']
+                data['model_ready'] = analysis['is_calibrated']
+                data['stats'] = analysis['stats']
+                data['anomalies'] = analysis.get('anomalies', {})
                 
                 # Store history
                 self.history.append(data)
                 if len(self.history) > 1000:
                     self.history.pop(0)
 
-                # Log event if anomaly
-                if status in ["warning", "critical"]:
+                # Log event if anomaly detected
+                if analysis['status'] in ["warning", "critical"]:
                     if not self.events or (data['timestamp'] - self.events[0].get('timestamp', 0) > 5):
                         # Debounce events (don't spam every second)
+                        # Create detailed event message
+                        anomaly_signals = list(analysis['anomalies'].keys())
+                        anomaly_desc = ', '.join([
+                            f"{sig}: {analysis['anomalies'][sig]['type']} ({analysis['anomalies'][sig]['deviation_sigma']:.1f}σ)"
+                            for sig in anomaly_signals
+                        ])
+                        
                         event = {
                             "timestamp": data['timestamp'],
-                            "type": status.upper(),
-                            "message": f"Anomaly detected! Score: {risk_score:.1f}",
+                            "type": analysis['status'].upper(),
+                            "message": f"Statistical anomaly detected! {anomaly_desc}",
                             "details": data
                         }
                         
@@ -60,7 +70,7 @@ class AnomalyService:
                         try:
                             event_id = save_anomaly_event(event)
                             event['id'] = event_id
-                            logger.info(f"Anomaly event saved with ID {event_id}")
+                            logger.info(f"Anomaly event saved with ID {event_id}: {anomaly_desc}")
                         except Exception as e:
                             logger.error(f"Failed to persist anomaly event: {e}")
                         
