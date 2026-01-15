@@ -8,6 +8,7 @@ function App() {
   const [activeModule, setActiveModule] = useState('foundation');
   const [status, setStatus] = useState(null);
   const [history, setHistory] = useState([]);
+  const [stream, setStream] = useState([]);
   const [pareto, setPareto] = useState([]);
   const [connected, setConnected] = useState(false);
   
@@ -29,14 +30,18 @@ function App() {
 
       // Only fetch heavy dashboard data if we are on the foundation tab
       if (activeModule === 'foundation') {
-          const [metricsRes, paretoRes] = await Promise.all([
+          const [metricsRes, paretoRes, streamRes] = await Promise.all([
             fetch('http://localhost:8000/api/metrics'),
-            fetch('http://localhost:8000/api/pareto')
+            fetch('http://localhost:8000/api/pareto'),
+            fetch('http://localhost:8000/api/anomaly/stream')
           ]);
           const metricsData = await metricsRes.json();
           const paretoData = await paretoRes.json();
+          const streamData = await streamRes.json();
+          
           setHistory(metricsData.history);
           setPareto(paretoData);
+          setStream(streamData);
       }
     } catch (e) {
       console.error("Connection failed", e);
@@ -159,7 +164,7 @@ function App() {
 
       {/* Main Content Area */}
       {activeModule === 'foundation' && (
-          <Dashboard status={status} history={history} pareto={pareto} />
+          <Dashboard status={status} history={history} pareto={pareto} stream={stream} />
       )}
       
       {activeModule === 'anomaly' && (

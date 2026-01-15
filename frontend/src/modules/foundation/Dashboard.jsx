@@ -3,9 +3,10 @@ import { Activity, Zap, Box, AlertTriangle } from 'lucide-react';
 import { KPIWidget } from '../../components/KPIWidget';
 import { OEEGauge } from '../../components/OEEGauge';
 import { EnergyChart } from '../../components/EnergyChart';
+import { SignalChart } from '../anomaly_detection/SignalChart';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 
-export function Dashboard({ status, history, pareto }) {
+export function Dashboard({ status, history, pareto, stream }) {
   if (!status) return <div>Loading Dashboard...</div>;
 
   return (
@@ -65,6 +66,31 @@ export function Dashboard({ status, history, pareto }) {
             </Bar>
           </BarChart>
         </ResponsiveContainer>
+      </div>
+
+      {/* Row 3: Real-time Signal Monitoring */}
+      <h3 style={{ gridColumn: 'span 12', marginTop: '1rem', marginBottom: '0.5rem' }}>Real-time Signal Monitoring</h3>
+      
+      <div style={{ gridColumn: 'span 6' }}>
+        <SignalChart 
+            title="Vibration (Real-time)" 
+            data={stream || []} 
+            dataKey="vibration" 
+            color="#00f2ff" 
+            unit="mm/s" 
+            domain={[0, 5]}
+        />
+      </div>
+
+      <div style={{ gridColumn: 'span 6' }}>
+        <SignalChart 
+            title="Temperature (Real-time)" 
+            data={stream || []} 
+            dataKey="temperature" 
+            color="#ff00cc" 
+            unit="°C" 
+            domain={[20, 100]}
+        />
       </div>
     </main>
   );

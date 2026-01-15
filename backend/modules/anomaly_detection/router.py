@@ -17,9 +17,11 @@ def get_anomaly_status():
     }
 
 @router.get("/stream")
-def get_stream():
-    # Return last 60 points for charts
-    return service.history[-60:]
+def get_stream(limit: int = 60):
+    # Return last 'limit' points for charts. If limit is 0 or negative, return all.
+    if limit <= 0:
+        return service.history
+    return service.history[-limit:]
 
 @router.get("/events")
 def get_events():

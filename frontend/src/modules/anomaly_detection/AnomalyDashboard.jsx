@@ -1,112 +1,174 @@
 import React, { useEffect, useState } from 'react';
-import { SignalChart } from './SignalChart';
 import { AlertTriangle, CheckCircle, BrainCircuit, Activity } from 'lucide-react';
+import { ResponsiveContainer, ComposedChart, Line, Scatter, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
+
+// Internal Component for Historical Chart
+const HistoryChart = ({ data, dataKey, color, title, unit, onPointClick }) => {
+    return (
+      <div className="card" style={{ height: '350px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
+          <h3 style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>{title} (History)</h3>
+          <div style={{ fontSize: '0.8rem', opacity: 0.7 }}>Click red points to Diagnose</div>
+        </div>
+        <ResponsiveContainer width="100%" height="85%">
+          <ComposedChart data={data} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
+            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
+            <XAxis 
+                dataKey="timestamp" 
+                tickFormatter={(unixTime) => new Date(unixTime * 1000).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} 
+                minTickGap={30}
+            />
+            <YAxis />
+            <Tooltip 
+              contentStyle={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--glass-border)' }}
+              labelFormatter={(unixTime) => new Date(unixTime * 1000).toLocaleString()}
+            />
+            <Line 
+              type="monotone" 
+              dataKey={dataKey} 
+              stroke={color} 
+              strokeWidth={2}
+              dot={(props) => {
+                  const { cx, cy, payload } = props;
+                  // Highlight anomalies with red dots
+                  if (payload.status === 'critical' || payload.status === 'warning') {
+                      return (
+                          <circle 
+                              cx={cx} 
+                              cy={cy} 
+                              r={6} 
+                              fill="red" 
+                              stroke="white"
+                              strokeWidth={2}
+                              style={{ cursor: 'pointer' }}
+                              onClick={() => {
+                                  const evt = {
+                                      timestamp: payload.timestamp,
+                                      type: payload.status === 'critical' ? 'CRITICAL' : 'WARNING',
+                                      message: `Historical Anomaly detected in ${dataKey}`,
+                                      details: {
+                                          vibration: payload.vibration,
+                                          temperature: payload.temperature,
+                                          power: payload.power
+                                      },
+                                      value: payload[dataKey]
+                                  };
+                                  onPointClick(evt);
+                              }}
+                          />
+                      );
+                  }
+                  return null;
+              }}
+              isAnimationActive={false}
+            />
+          </ComposedChart>
+        </ResponsiveContainer>
+      </div>
+    );
+  };
 
 export function AnomalyDashboard({ onDiagnose }) {
-  const [stream, setStream] = useState([]);
+  const [historyData, setHistoryData] = useState([]);
   const [events, setEvents] = useState([]);
   const [status, setStatus] = useState({ status: 'init', model_ready: false });
-  const [lastUpdate, setLastUpdate] = useState(Date.now());
+  const [loading, setLoading] = useState(false);
 
   const fetchData = async () => {
     try {
-      const [streamRes, eventsRes, statusRes] = await Promise.all([
-        fetch('http://localhost:8000/api/anomaly/stream'),
+      setLoading(true);
+      const [historyRes, eventsRes, statusRes] = await Promise.all([
+        fetch('http://localhost:8000/api/anomaly/stream?limit=1000'), // Fetch large history
         fetch('http://localhost:8000/api/anomaly/events'),
         fetch('http://localhost:8000/api/anomaly/status')
       ]);
 
-      const streamData = await streamRes.json();
+      const hData = await historyRes.json();
       const eventsData = await eventsRes.json();
       const statusData = await statusRes.json();
 
-      setStream(streamData);
+      setHistoryData(hData);
       setEvents(eventsData);
       setStatus(statusData);
-      setLastUpdate(Date.now());
     } catch (e) {
       console.error("Anomaly Module fetch error", e);
+    } finally {
+        setLoading(false);
     }
   };
 
   useEffect(() => {
     fetchData();
-    const interval = setInterval(fetchData, 1000);
+    // Refresh history every 10 seconds (less frequent than real-time)
+    const interval = setInterval(fetchData, 10000);
     return () => clearInterval(interval);
   }, []);
 
-  const getStatusColor = (s) => {
-      if (s === 'critical') return 'var(--danger)';
-      if (s === 'warning') return 'var(--warning)';
-      return 'var(--success)';
-  }
-
-  const getStatusIcon = (s) => {
-    if (s === 'critical' || s === 'warning') return <AlertTriangle size={32} />;
-    return <CheckCircle size={32} />;
-  }
-
   return (
     <div className="dashboard-grid">
-      {/* Header Stat Cards */}
-      <div className="card" style={{ gridColumn: 'span 4', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-         <div>
-             <h3 style={{ color: 'var(--text-muted)' }}>System Health</h3>
-             <div style={{ fontSize: '1.5rem', fontWeight: 'bold', marginTop: '0.5rem', color: getStatusColor(status.status), textTransform: 'capitalize' }}>
-                 {status.status}
-             </div>
+      
+      {/* Header Actions */}
+      <div className="card" style={{ gridColumn: 'span 12', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            <BrainCircuit size={24} color={status.model_ready ? 'var(--primary)' : 'var(--text-muted)'} />
+            <div>
+                <strong>Anomaly History Analysis</strong>
+                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Review past performance and detailed anomalies</div>
+            </div>
          </div>
-         <div style={{ color: getStatusColor(status.status) }}>
-             {getStatusIcon(status.status)}
-         </div>
-      </div>
-
-      <div className="card" style={{ gridColumn: 'span 4' }}>
-         <h3 style={{ color: 'var(--text-muted)' }}>AI Model Status</h3>
-         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginTop: '0.5rem' }}>
-             <BrainCircuit size={24} color={status.model_ready ? 'var(--primary)' : 'var(--text-muted)'} />
-             <div>
-                <div style={{ fontWeight: 'bold' }}>{status.model_ready ? 'Active' : 'Calibrating...'}</div>
-                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Isolation Forest (Unsupervised)</div>
-             </div>
+         <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+             <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Last 1000 points</span>
+             <button onClick={fetchData} className="btn" disabled={loading}>
+                 {loading ? 'Refreshing...' : 'Refresh Data'}
+             </button>
          </div>
       </div>
 
-       <div className="card" style={{ gridColumn: 'span 4' }}>
-         <h3 style={{ color: 'var(--text-muted)' }}>Anomaly Score</h3>
-         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginTop: '0.5rem' }}>
-             <Activity size={24} color={stream.length > 0 && stream[stream.length-1].anomaly_score > 50 ? 'var(--danger)' : 'var(--success)'} />
-             <div>
-                <div style={{ fontWeight: 'bold', fontSize: '1.2rem' }}>
-                    {stream.length > 0 ? stream[stream.length-1].anomaly_score.toFixed(1) : 0}%
-                </div>
-                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Real-time Risk Index</div>
-             </div>
-         </div>
+      {/* Historical Charts Row */}
+      <div style={{ gridColumn: 'span 12' }}>
+        <HistoryChart 
+            data={historyData} 
+            dataKey="vibration" 
+            color="#00f2ff" 
+            title="Vibration History" 
+            unit="mm/s" 
+            onPointClick={onDiagnose}
+        />
+      </div>
+      
+      <div style={{ gridColumn: 'span 6' }}>
+        <HistoryChart 
+            data={historyData} 
+            dataKey="temperature" 
+            color="#ff00cc" 
+            title="Temperature History" 
+            unit="°C" 
+            onPointClick={onDiagnose}
+        />
       </div>
 
-      {/* Charts Row */}
-      <div style={{ gridColumn: 'span 4' }}>
-        <SignalChart data={stream} dataKey="vibration" color="#8884d8" title="Vibration Sensor" unit="mm/s" domain={[0, 2]} />
-      </div>
-      <div style={{ gridColumn: 'span 4' }}>
-        <SignalChart data={stream} dataKey="temperature" color="#82ca9d" title="Temperature Sensor" unit="°C" domain={[20, 80]} />
-      </div>
-      <div style={{ gridColumn: 'span 4' }}>
-        <SignalChart data={stream} dataKey="power" color="#ffc658" title="Power Consumption" unit="kW" domain={[0, 100]} />
+      <div style={{ gridColumn: 'span 6' }}>
+         <HistoryChart 
+            data={historyData} 
+            dataKey="power" 
+            color="#ffc658" 
+            title="Power History" 
+            unit="kW" 
+            onPointClick={onDiagnose}
+        />
       </div>
 
       {/* Events Log */}
       <div className="card" style={{ gridColumn: 'span 12' }}>
         <h3 style={{ marginBottom: '1rem' }}>Anomaly Event Log</h3>
-        <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
+        <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
                     <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.1)', textAlign: 'left' }}>
                         <th style={{ padding: '0.5rem' }}>Time</th>
                         <th style={{ padding: '0.5rem' }}>Type</th>
                         <th style={{ padding: '0.5rem' }}>Message</th>
-                        <th style={{ padding: '0.5rem' }}>Vibration</th>
+                        <th style={{ padding: '0.5rem' }}>Details</th>
                         <th style={{ padding: '0.5rem' }}>Action</th>
                     </tr>
                 </thead>
@@ -114,7 +176,7 @@ export function AnomalyDashboard({ onDiagnose }) {
                     {events.map((evt, i) => (
                         <tr key={i} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
                             <td style={{ padding: '0.5rem', color: 'var(--text-muted)' }}>
-                                {new Date(evt.timestamp * 1000).toLocaleTimeString()}
+                                {new Date(evt.timestamp * 1000).toLocaleString()}
                             </td>
                             <td style={{ padding: '0.5rem' }}>
                                 <span style={{ 
@@ -126,7 +188,9 @@ export function AnomalyDashboard({ onDiagnose }) {
                                 </span>
                             </td>
                             <td style={{ padding: '0.5rem' }}>{evt.message}</td>
-                            <td style={{ padding: '0.5rem' }}>{evt.details.vibration?.toFixed(3)} mm/s</td>
+                            <td style={{ padding: '0.5rem' }}>
+                                V: {evt.details.vibration?.toFixed(2)} | T: {evt.details.temperature?.toFixed(1)}
+                            </td>
                             <td style={{ padding: '0.5rem' }}>
                                 <button 
                                     onClick={() => onDiagnose && onDiagnose(evt)}
@@ -151,8 +215,8 @@ export function AnomalyDashboard({ onDiagnose }) {
                     ))}
                     {events.length === 0 && (
                         <tr>
-                            <td colSpan="4" style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)' }}>
-                                No anomalies detected recently. System running smoothly.
+                            <td colSpan="5" style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)' }}>
+                                No anomalies in history.
                             </td>
                         </tr>
                     )}
@@ -163,4 +227,3 @@ export function AnomalyDashboard({ onDiagnose }) {
     </div>
   );
 }
-
