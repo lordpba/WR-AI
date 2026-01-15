@@ -3,7 +3,6 @@ uvicorn
 pandas
 numpy
 python-multipart
-# For simpler cors handling
-python-multipart
 scikit-learn
-scikit-learn
+requests
+google-generativeai

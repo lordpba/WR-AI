@@ -28,6 +28,9 @@ else
     source venv/bin/activate
 fi
 
+echo "📦 Checking and installing dependencies..."
+pip install -r requirements.txt
+
 # Always install/update dependencies
 echo "📦 Checking/Installing dependencies..."
 pip install -r requirements.txt

@@ -18,11 +18,12 @@ Below is the detail of the planned modules.
 - Alerts with severity and trend -> **Implemented: Real-time Risk Score**.
 - Vibration/Temperature monitoring simulated via "Serial Port Adapter".
 
-## 📅 Module 3: Guided Diagnostics
+## ✅ Module 3: Guided Diagnostics - COMPLETED
 **Objective**: Reduce MTTR and standardize troubleshooting.
-- Rule-based system + Knowledge Base.
-- Contextual checklists for each alarm code.
-- Junior operator support.
+- **LLM Integration**: Support for Local (Ollama) and Remote (Gemini) models.
+- **RAG System**: Ingestion of Machine Manuals for context-aware answers.
+- **Anomaly Context**: Automatic injection of detected anomalies into the prompt.
+- Interactive Chat Interface for operators.
 
 ## 📅 Module 4: Predictive Maintenance
 **Objective**: Estimate failure risk and remaining useful life (RUL).

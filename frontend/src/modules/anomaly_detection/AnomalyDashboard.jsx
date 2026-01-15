@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { SignalChart } from './SignalChart';
 import { AlertTriangle, CheckCircle, BrainCircuit, Activity } from 'lucide-react';
 
-export function AnomalyDashboard() {
+export function AnomalyDashboard({ onDiagnose }) {
   const [stream, setStream] = useState([]);
   const [events, setEvents] = useState([]);
   const [status, setStatus] = useState({ status: 'init', model_ready: false });
@@ -107,6 +107,7 @@ export function AnomalyDashboard() {
                         <th style={{ padding: '0.5rem' }}>Type</th>
                         <th style={{ padding: '0.5rem' }}>Message</th>
                         <th style={{ padding: '0.5rem' }}>Vibration</th>
+                        <th style={{ padding: '0.5rem' }}>Action</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -125,7 +126,27 @@ export function AnomalyDashboard() {
                                 </span>
                             </td>
                             <td style={{ padding: '0.5rem' }}>{evt.message}</td>
-                            <td style={{ padding: '0.5rem' }}>{evt.details.vibration.toFixed(3)} mm/s</td>
+                            <td style={{ padding: '0.5rem' }}>{evt.details.vibration?.toFixed(3)} mm/s</td>
+                            <td style={{ padding: '0.5rem' }}>
+                                <button 
+                                    onClick={() => onDiagnose && onDiagnose(evt)}
+                                    className="btn" 
+                                    style={{ 
+                                        padding: '0.25rem 0.5rem', 
+                                        fontSize: '0.75rem',
+                                        background: 'var(--primary)',
+                                        border: 'none',
+                                        borderRadius: '4px',
+                                        color: 'white',
+                                        cursor: 'pointer',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '0.25rem'
+                                    }}
+                                >
+                                    <BrainCircuit size={12} /> Diagnose
+                                </button>
+                            </td>
                         </tr>
                     ))}
                     {events.length === 0 && (

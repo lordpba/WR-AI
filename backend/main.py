@@ -4,6 +4,7 @@ import asyncio
 from modules.foundation.simulator import simulator
 from modules.foundation.router import router as foundation_router
 from modules.anomaly_detection.router import router as anomaly_router
+from modules.guided_diagnosis.router import router as diagnosis_router
 
 app = FastAPI()
 
@@ -19,6 +20,7 @@ app.add_middleware(
 # Include Routers
 app.include_router(foundation_router)
 app.include_router(anomaly_router)
+app.include_router(diagnosis_router)
 
 from modules.anomaly_detection.service import service as anomaly_service
 

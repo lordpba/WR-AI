@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { Activity, Zap, Box, AlertTriangle, Settings, RefreshCw, LayoutDashboard, BrainCircuit } from 'lucide-react';
+import { Activity, Zap, Box, AlertTriangle, Settings, RefreshCw, LayoutDashboard, BrainCircuit, MessageSquareText } from 'lucide-react';
 import { Dashboard } from './modules/foundation/Dashboard';
 import { AnomalyDashboard } from './modules/anomaly_detection/AnomalyDashboard';
+import { DiagnosisDashboard } from './modules/guided_diagnosis/DiagnosisDashboard';
 
 function App() {
   const [activeModule, setActiveModule] = useState('foundation');
@@ -9,6 +10,14 @@ function App() {
   const [history, setHistory] = useState([]);
   const [pareto, setPareto] = useState([]);
   const [connected, setConnected] = useState(false);
+  
+  // Cross-module state
+  const [selectedAnomaly, setSelectedAnomaly] = useState(null);
+
+  const handleStartDiagnosis = (anomaly) => {
+      setSelectedAnomaly(anomaly);
+      setActiveModule('diagnosis');
+  };
 
   const fetchData = async () => {
     try {
@@ -106,6 +115,26 @@ function App() {
                     <BrainCircuit size={16} />
                     Anomaly Detection
                 </button>
+
+                <button 
+                    onClick={() => setActiveModule('diagnosis')}
+                    style={{
+                        background: activeModule === 'diagnosis' ? 'rgba(255,255,255,0.1)' : 'transparent',
+                        border: 'none',
+                        padding: '0.5rem 1rem',
+                        borderRadius: '6px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.5rem',
+                        color: activeModule === 'diagnosis' ? 'white' : 'var(--text-muted)',
+                        cursor: 'pointer',
+                        fontWeight: '500',
+                        transition: 'all 0.2s'
+                    }}
+                >
+                    <MessageSquareText size={16} />
+                    Guided Diagnosis
+                </button>
             </nav>
         </div>
 
@@ -134,7 +163,11 @@ function App() {
       )}
       
       {activeModule === 'anomaly' && (
-          <AnomalyDashboard />
+          <AnomalyDashboard onDiagnose={handleStartDiagnosis} />
+      )}
+
+      {activeModule === 'diagnosis' && (
+          <DiagnosisDashboard initialAnomaly={selectedAnomaly} />
       )}
       
     </div>
