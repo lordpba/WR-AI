@@ -16,6 +16,7 @@ Below is the detail of the planned modules.
 **Objective**: Intercept mechanical/process drifts before failure.
 - ML algorithms on signals (currents, temperature) -> **Implemented: Isolation Forest**.
 - Alerts with severity and trend -> **Implemented: Real-time Risk Score**.
+- Historical charts with clickable anomalies (no WebSocket needed for POC).
 - Vibration/Temperature monitoring simulated via "Serial Port Adapter".
 
 ## ✅ Module 3: Guided Diagnostics - COMPLETED
@@ -23,7 +24,14 @@ Below is the detail of the planned modules.
 - **LLM Integration**: Support for Local (Ollama) and Remote (Gemini) models.
 - **RAG System**: Ingestion of Machine Manuals for context-aware answers.
 - **Anomaly Context**: Automatic injection of detected anomalies into the prompt.
+- **Persisted Chats**: Each anomaly has its own saved chat history in SQLite.
 - Interactive Chat Interface for operators.
+
+## ✅ Platform Improvements
+- Logging-first backend (replaced prints), lifespan startup, and graceful background tasks.
+- SQLite persistence for anomaly events and chat history.
+- Environment-driven LLM configuration via `.env` sample.
+- Frontend Error Boundary to keep the UI responsive on runtime errors.
 
 ## 📅 Module 4: Predictive Maintenance
 **Objective**: Estimate failure risk and remaining useful life (RUL).

@@ -2,58 +2,53 @@
 
 ![WR-AI Dashboard](WR-AI.png)
 
-**WR-AI** is an intelligent "smart layer" designed to monitor, diagnose, and optimize industrial machines. This project serves as a Proof of Concept (POC) demonstrating the core capabilities of data acquisition, OEE monitoring, and AI-based anomaly detection.
+**WR-AI** is an intelligent "smart layer" designed to monitor, diagnose, and optimize industrial machines. The POC now delivers three working modules end-to-end: OEE foundation, AI anomaly detection (historical view), and guided diagnosis with per-anomaly chat memory.
 
-## 🚀 Project Overview
+## 🎥 Demo Video
+Watch the interface in action:
 
-The system transforms raw machine data (simulated for this POC) into actionable operational decisions.
+[![WR-AI Interface Demo](https://img.youtube.com/vi/FvLEpaICaD8/0.jpg)](https://youtu.be/FvLEpaICaD8)
 
-### ✅ Module 1: Foundation & OEE
-- **Real-time Monitoring**: Visualization of machine state, speed, and production data.
-- **OEE Calculation**: Instant efficiency metrics (Availability, Performance, Quality).
-- **Energy Analytics**: Live power consumption monitoring (kW).
-- **Pareto Analysis**: Identification of top downtime causes.
+## 🚀 What’s Included Today
+- **Module 1 – Foundation & OEE**: Real-time machine status, OEE (Availability/Performance/Quality), energy analytics, Pareto of downtime causes.
+- **Module 2 – Anomaly Detection**: Isolation Forest risk scoring on vibration/temperature/power; historical charts with clickable anomalies; debounced alerts.
+- **Module 3 – Guided Diagnosis (LLM)**: Dual LLM (Ollama default, Gemini optional), manual/RAG context, anomaly context injection, chat UI, and per-anomaly chat history saved to SQLite.
 
-### ✅ Module 2: Anomaly Detection (AI)
-- **Unsupervised Learning**: Uses `IsolationForest` (Scikit-learn) to learn normal operating conditions.
-- **Real-time Scoring**: Live "Risk Score" (0-100%) based on multi-sensor fusion (Vibration, Temperature, Power).
-- **Automated Alerts**: Early warning system for process drifts.
-- **Calibrating Phase**: Auto-calibration on startup (first 60s).
-
-## 🛠 Tech Stack
-
-- **Backend**: Python (FastAPI)
-  - Modular Architecture (`modules/foundation`, `modules/anomaly_detection`)
-  - ML Library: Scikit-learn
-  - Simulation: Custom PLC & Serial Port Simulator
-- **Frontend**: React (Vite)
-  - Recharts for data visualization
-  - Framer Motion for animations
-  - Lucide-React for UI icons
+## 🛠 Architecture & Stack
+- **Backend**: FastAPI, modular (foundation, anomaly_detection, guided_diagnosis), IsolationForest, logging, SQLite persistence at [backend/modules/anomaly_detection/anomaly_data.db](backend/modules/anomaly_detection/anomaly_data.db).
+- **Frontend**: React (Vite), Recharts, Lucide icons, Error Boundary wrapper for crash-safe UI.
+- **Config**: Environment variables via [backend/.env.example](backend/.env.example); default LLM provider is Ollama (`OLLAMA_MODEL=llama3.1:latest`).
 
 ## 📦 Installation & Setup
 
 ### Prerequisites
-- Python 3.8+
-- Node.js 16+
+- Python 3.10+
+- Node.js 18+
+- (Optional) Ollama running locally for default LLM
 
-### Quick Start (Linux/Mac)
-The easiest way to run the project is using the automated launcher:
-
+### Quick Start
 ```bash
 chmod +x start.sh
 ./start.sh
 ```
+This will set up the Python venv, install backend/frontend deps, run FastAPI on http://localhost:8000 and Vite on http://localhost:5173.
 
-This script will automatically:
-1. Create/Update the Python virtual environment.
-2. Install Python dependencies (`requirements.txt`).
-3. Install Node.js dependencies (`package.json`).
-4. Launch both Backend and Frontend.
+### Configuration
+1) Copy the sample env: `cp backend/.env.example backend/.env`
+2) Set `LLM_PROVIDER` to `ollama` (local) or `gemini` (cloud). For Gemini, add your `GEMINI_API_KEY`.
+3) Optional thresholds and loop intervals can be tuned in `.env`.
 
-The dashboard will be available at `http://localhost:5173`.
-The API will be available at `http://localhost:8000`.
+## 🧭 Using the POC
+- **Monitor**: Foundation dashboard shows live OEE, power, and Pareto data.
+- **Detect**: Anomaly dashboard shows historical charts; red points or event rows are clickable to open diagnosis.
+- **Diagnose**: Guided Diagnosis chat auto-injects anomaly context; chats are persisted per anomaly and retrievable via `/api/anomaly/events/{id}/chat`.
+
+## 🔌 Key APIs
+- `GET /api/anomaly/events` – latest anomalies (persisted to SQLite)
+- `GET /api/anomaly/events/{id}` – single anomaly with details
+- `GET /api/anomaly/events/{id}/chat` – chat history for an anomaly
+- `POST /api/anomaly/events/{id}/chat` – append chat message (role, content)
+- `POST /api/diagnosis/analyze` – run LLM diagnosis (supports `anomaly_id` to store chat)
 
 ## 🔮 Future Roadmap
-
-See [ROADMAP.md](./ROADMAP.md) for the detailed list of future AI modules (Diagnosi Guidata, Predictive Maintenance, Computer Vision, etc.).
+See [ROADMAP.md](ROADMAP.md) for the planned evolution (Predictive Maintenance, Energy Analytics, CV Quality, Auto-tuning, Digital Twin, etc.).
