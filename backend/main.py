@@ -1,3 +1,5 @@
+import logging
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import asyncio
@@ -5,13 +7,44 @@ from modules.foundation.simulator import simulator
 from modules.foundation.router import router as foundation_router
 from modules.anomaly_detection.router import router as anomaly_router
 from modules.guided_diagnosis.router import router as diagnosis_router
+from modules.anomaly_detection.database import init_database
 
-app = FastAPI()
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Application lifespan manager - handles startup and shutdown"""
+    # Startup
+    logger.info("🚀 WR-AI Backend Starting...")
+    
+    # Initialize database
+    init_database()
+    logger.info("📦 Database initialized")
+    
+    # Import service here to avoid circular imports
+    from modules.anomaly_detection.service import service as anomaly_service
+    
+    # Start background tasks
+    asyncio.create_task(run_simulation())
+    asyncio.create_task(anomaly_service.start_loop())
+    logger.info("✅ All services started")
+    
+    yield  # Application runs here
+    
+    # Shutdown
+    logger.info("🛑 WR-AI Backend Shutting down...")
+
+app = FastAPI(lifespan=lifespan)
 
 # Enable CORS for frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # In production replace with frontend URL
+    allow_origins=["*"],  # In production replace with frontend URL
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -22,16 +55,9 @@ app.include_router(foundation_router)
 app.include_router(anomaly_router)
 app.include_router(diagnosis_router)
 
-from modules.anomaly_detection.service import service as anomaly_service
-
-@app.on_event("startup")
-async def startup_event():
-    # Start simulation loop in background
-    asyncio.create_task(run_simulation())
-    # Start Anomaly Service Loop
-    asyncio.create_task(anomaly_service.start_loop())
-
 async def run_simulation():
+    """Background task for PLC simulation"""
+    logger.info("🏭 Simulation loop started")
     while True:
         simulator.update()
         await asyncio.sleep(1)

@@ -8,7 +8,7 @@ class PLCSimulator:
         self.state = "STOP" # RUN, STOP, FAULT
         self.last_state_change = time.time()
         self.total_produced = 0
-        self.total_scarp = 0
+        self.total_scrap = 0
         self.current_recipe = "Recipe_A"
         self.speed = 0 # pieces per minute
         self.energy_counter_kwh = 12500.0 # Starting offset
@@ -84,7 +84,7 @@ class PLCSimulator:
             pieces_generated = (self.speed / 60.0) 
             # 2% scrap rate
             if random.random() < 0.02:
-                self.total_scarp += pieces_generated
+                self.total_scrap += pieces_generated
             else:
                 self.total_produced += pieces_generated
                 
@@ -131,7 +131,7 @@ class PLCSimulator:
             "temperature": round(self.temperature, 1),
             "vibration": round(self.vibration, 2),
             "produced": int(self.total_produced),
-            "scrap": int(self.total_scarp)
+            "scrap": int(self.total_scrap)
         }
         self.history.append(snapshot)
         if len(self.history) > 3600: # keep last hour roughly
@@ -163,7 +163,7 @@ class PLCSimulator:
             "alerts": self.active_alerts,
             "energy_kwh": round(self.energy_counter_kwh, 2),
             "produced": int(self.total_produced),
-            "scrap": int(self.total_scarp),
+            "scrap": int(self.total_scrap),
             "oee_percent": self._calculate_realtime_oee(),
             "timestamp": datetime.now().isoformat()
         }
@@ -174,10 +174,10 @@ class PLCSimulator:
         # Performance is speed / target speed
         # Quality is good / total
         
-        if self.total_produced + self.total_scarp == 0:
+        if self.total_produced + self.total_scrap == 0:
             return 0
             
-        quality = self.total_produced / (self.total_produced + self.total_scarp)
+        quality = self.total_produced / (self.total_produced + self.total_scrap)
         
         # Performance (instant)
         target = self.recipes[self.current_recipe]["target_speed"]

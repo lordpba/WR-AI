@@ -7,6 +7,7 @@ class ManualUpdate(BaseModel):
 class DiagnosisRequest(BaseModel):
     query: str
     anomaly_context: Optional[Dict[str, Any]] = None
-    provider: str # "ollama" or "gemini"
+    anomaly_id: Optional[int] = None  # For linking chat to specific anomaly
+    provider: str  # "ollama" or "gemini"
     config: Optional[Dict[str, Any]] = {} 
     # config can contain apiKey for Gemini, or url/model for Ollama

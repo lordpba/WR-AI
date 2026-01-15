@@ -6,3 +6,4 @@ python-multipart
 scikit-learn
 requests
 google-generativeai
+python-dotenv
