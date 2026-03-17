@@ -1,12 +1,17 @@
-from fastapi import APIRouter, HTTPException, Body
+from fastapi import APIRouter, HTTPException, Body, UploadFile, File, Form
 from typing import Optional, Dict, Any
 from datetime import datetime
 import csv
 import io
+import os
+import tempfile
+import shutil
 from .service import service
 from .database import get_chat_history, save_chat_message, get_anomaly_event_by_id
 from .ml_analyzer import ml_analyzer
 from .statistical_baseline import statistical_baseline
+from .xlsx_importer import import_termoformatrice_xlsx
+from modules.realtime.database import get_samples_between
 
 router = APIRouter(
     prefix="/api/anomaly",
@@ -30,9 +35,27 @@ def get_stream(limit: int = 60):
         return service.history
     return service.history[-limit:]
 
+
+@router.get("/history")
+def get_history(ts_from: float, ts_to: float, limit: int = 50_000):
+    """
+    Historical analysis source (SQLite samples) for the selected interval.
+    """
+    limit = max(1, min(int(limit), 50_000))
+    return get_samples_between(float(ts_from), float(ts_to), limit=limit)
+
 @router.get("/events")
 def get_events():
     return service.events
+
+@router.get("/source")
+def get_source():
+    return {"mode": getattr(service, "source_mode", "realtime")}
+
+@router.post("/source")
+def set_source(mode: str = Body(default="realtime")):
+    new_mode = service.set_source_mode(mode)
+    return {"mode": new_mode}
 
 @router.get("/events/{event_id}")
 def get_event_by_id(event_id: int):
@@ -70,6 +93,47 @@ def add_chat_message(event_id: int, role: str, content: str):
 def get_statistical_stats():
     """Get current statistical baseline statistics"""
     return statistical_baseline.get_current_stats()
+
+@router.post("/import/xlsx")
+async def import_xlsx(
+    file: UploadFile = File(...),
+    electrical_mode: str = Form(default="three_phase"),
+    max_points: int = Form(default=1000),
+):
+    """
+    Import historical points from an XLSX file and switch service to file mode.
+    """
+    tmp_path = None
+    try:
+        suffix = os.path.splitext(file.filename or "")[1] or ".xlsx"
+        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+            tmp_path = tmp.name
+            shutil.copyfileobj(file.file, tmp)
+
+        points, summary = import_termoformatrice_xlsx(tmp_path, electrical_mode=electrical_mode)
+        result = service.load_history_from_import(points, max_points=max_points, clear_events=True)
+
+        return {
+            "status": "success",
+            "mode": result["mode"],
+            "import_summary": {
+                "rows_total": summary.rows_total,
+                "rows_imported": summary.rows_imported,
+                "timestamp_min": summary.timestamp_min,
+                "timestamp_max": summary.timestamp_max,
+                "detected_columns": summary.detected_columns,
+            },
+            "points_loaded": result["points_loaded"],
+            "events_generated": result["events_generated"],
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Import failed: {str(e)}")
+    finally:
+        if tmp_path and os.path.exists(tmp_path):
+            try:
+                os.unlink(tmp_path)
+            except Exception:
+                pass
 
 @router.get("/ml/algorithms")
 def get_ml_algorithms():
@@ -153,13 +217,14 @@ def export_history_csv():
     }
 
 @router.post("/clear-history")
-def clear_history(confirm: bool = Body(default=False)):
+def clear_history(payload: Dict[str, Any] = Body(default=None)):
     """
     Clear all historical data from memory.
     
     Args:
         confirm: Must be True to actually delete the data
     """
+    confirm = bool((payload or {}).get("confirm", False))
     if not confirm:
         return {
             "status": "warning",
@@ -186,13 +251,14 @@ def clear_history(confirm: bool = Body(default=False)):
         raise HTTPException(status_code=500, detail=f"Failed to clear history: {str(e)}")
 
 @router.post("/clear-events")
-def clear_events(confirm: bool = Body(default=False)):
+def clear_events(payload: Dict[str, Any] = Body(default=None)):
     """
     Clear all anomaly events from memory (does not affect database).
     
     Args:
         confirm: Must be True to actually delete the data
     """
+    confirm = bool((payload or {}).get("confirm", False))
     if not confirm:
         return {
             "status": "warning",

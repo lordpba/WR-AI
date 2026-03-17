@@ -36,6 +36,12 @@ export const SignalChart = ({ data, dataKey, color, title, unit, domain, stats, 
   // Count anomalies
   const anomalyCount = chartData.filter(p => p.isAnomaly).length;
 
+  const formatValue = (v, digits = 1) => {
+    const n = Number(v);
+    if (Number.isFinite(n)) return n.toFixed(digits);
+    return '-';
+  };
+
   // Custom dot renderer for anomaly points
   const renderDot = (props) => {
     const { cx, cy, payload } = props;
@@ -75,7 +81,7 @@ export const SignalChart = ({ data, dataKey, color, title, unit, domain, stats, 
             </span>
           )}
           <span style={{ fontWeight: 'bold', color: color }}>
-            {data.length > 0 ? data[data.length-1][dataKey].toFixed(1) : '-'} {unit}
+            {data.length > 0 ? formatValue(data[data.length-1]?.[dataKey], 1) : '-'} {unit}
           </span>
         </div>
       </div>
@@ -108,7 +114,7 @@ export const SignalChart = ({ data, dataKey, color, title, unit, domain, stats, 
             itemStyle={{ color: color }}
             formatter={(value, name) => {
               if (name === dataKey) {
-                return [value.toFixed(2) + ' ' + unit, title.replace(' (History)', '')];
+                return [formatValue(value, 2) + ' ' + unit, title.replace(' (History)', '')];
               }
               return [value, name];
             }}

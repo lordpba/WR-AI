@@ -1,15 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { Activity, Zap, Box, AlertTriangle, Settings, RefreshCw, LayoutDashboard, BrainCircuit, MessageSquareText } from 'lucide-react';
-import { Dashboard } from './modules/foundation/Dashboard';
+import { RealtimeDashboard } from './modules/realtime/RealtimeDashboard';
 import { AnomalyDashboard } from './modules/anomaly_detection/AnomalyDashboard';
 import { DiagnosisDashboard } from './modules/guided_diagnosis/DiagnosisDashboard';
+import { SettingsPage } from './modules/settings/SettingsPage';
 
 function App() {
-  const [activeModule, setActiveModule] = useState('foundation');
+  const [activeModule, setActiveModule] = useState('realtime');
   const [status, setStatus] = useState(null);
-  const [history, setHistory] = useState([]);
-  const [stream, setStream] = useState([]);
-  const [pareto, setPareto] = useState([]);
   const [connected, setConnected] = useState(false);
   
   // Cross-module state
@@ -27,22 +25,6 @@ function App() {
       const statusData = await statusRes.json();
       setStatus(statusData);
       setConnected(true);
-
-      // Only fetch heavy dashboard data if we are on the foundation tab
-      if (activeModule === 'foundation') {
-          const [metricsRes, paretoRes, streamRes] = await Promise.all([
-            fetch('http://localhost:8000/api/metrics'),
-            fetch('http://localhost:8000/api/pareto'),
-            fetch('http://localhost:8000/api/anomaly/stream')
-          ]);
-          const metricsData = await metricsRes.json();
-          const paretoData = await paretoRes.json();
-          const streamData = await streamRes.json();
-          
-          setHistory(metricsData.history);
-          setPareto(paretoData);
-          setStream(streamData);
-      }
     } catch (e) {
       console.error("Connection failed", e);
       setConnected(false);
@@ -87,21 +69,21 @@ function App() {
             {/* Module Navigation */}
             <nav style={{ display: 'flex', gap: '0.5rem', background: 'rgba(255,255,255,0.03)', padding: '0.25rem', borderRadius: '8px' }}>
                 <button 
-                    onClick={() => setActiveModule('foundation')}
+                    onClick={() => setActiveModule('realtime')}
                     style={{ 
                         display: 'flex', alignItems: 'center', gap: '0.5rem',
                         padding: '0.5rem 1rem', 
                         borderRadius: '6px', 
                         border: 'none', 
-                        background: activeModule === 'foundation' ? 'var(--primary)' : 'transparent',
-                        color: activeModule === 'foundation' ? 'white' : 'var(--text-muted)',
+                        background: activeModule === 'realtime' ? 'var(--primary)' : 'transparent',
+                        color: activeModule === 'realtime' ? 'white' : 'var(--text-muted)',
                         cursor: 'pointer',
                         fontWeight: '500',
                         transition: 'all 0.2s'
                     }}
                 >
                     <LayoutDashboard size={16} />
-                    Foundation
+                    Realtime
                 </button>
                 <button 
                     onClick={() => setActiveModule('anomaly')}
@@ -140,6 +122,26 @@ function App() {
                     <MessageSquareText size={16} />
                     Guided Diagnosis
                 </button>
+
+                <button
+                    onClick={() => setActiveModule('settings')}
+                    style={{
+                        background: activeModule === 'settings' ? 'rgba(255,255,255,0.1)' : 'transparent',
+                        border: 'none',
+                        padding: '0.5rem 1rem',
+                        borderRadius: '6px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.5rem',
+                        color: activeModule === 'settings' ? 'white' : 'var(--text-muted)',
+                        cursor: 'pointer',
+                        fontWeight: '500',
+                        transition: 'all 0.2s'
+                    }}
+                >
+                    <Settings size={16} />
+                    Settings
+                </button>
             </nav>
         </div>
 
@@ -163,8 +165,8 @@ function App() {
       </header>
 
       {/* Main Content Area */}
-      {activeModule === 'foundation' && (
-          <Dashboard status={status} history={history} pareto={pareto} stream={stream} />
+      {activeModule === 'realtime' && (
+          <RealtimeDashboard />
       )}
       
       {activeModule === 'anomaly' && (
@@ -173,6 +175,10 @@ function App() {
 
       {activeModule === 'diagnosis' && (
           <DiagnosisDashboard initialAnomaly={selectedAnomaly} />
+      )}
+
+      {activeModule === 'settings' && (
+          <SettingsPage />
       )}
       
     </div>

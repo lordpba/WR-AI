@@ -30,12 +30,19 @@ Watch the interface in action:
 - Node.js 18+
 - (Optional) Ollama running locally for default LLM
 
-### Quick Start
+### Quick Start (Linux)
 ```bash
 chmod +x start.sh
 ./start.sh
 ```
 This will set up the Python venv, install backend/frontend deps, run FastAPI on http://localhost:8000 and Vite on http://localhost:5173.
+
+### Quick Start (Windows)
+- One-time setup: run `setup.bat`
+- Start: run `start.bat`
+
+### Setup guide
+See [SETUP.md](SETUP.md) for a step-by-step guide (Linux/Windows) and configuration notes.
 
 ### Configuration
 1) Copy the sample env: `cp backend/.env.example backend/.env`

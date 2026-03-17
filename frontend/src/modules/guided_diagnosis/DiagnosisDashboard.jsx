@@ -1,16 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { MessageSquare, FileText, Settings, Send, Save, Server, Loader } from 'lucide-react';
+import { MessageSquare, FileText, Send, Save, Loader } from 'lucide-react';
 
 export function DiagnosisDashboard({ initialAnomaly }) {
   const [activeTab, setActiveTab] = useState('chat');
-  
-  // Settings State
   const [provider, setProvider] = useState('ollama');
-  const [config, setConfig] = useState({
-    url: 'http://localhost:11434',
-    model: 'llama3.1:latest',
-    apiKey: ''
-  });
 
   // Manual State
   const [manualText, setManualText] = useState('');
@@ -31,6 +24,7 @@ export function DiagnosisDashboard({ initialAnomaly }) {
   // Fetch Manual on load
   useEffect(() => {
     fetchManual();
+    fetchProvider();
   }, []);
 
   // Handle initial anomaly separately to avoid duplicates
@@ -65,7 +59,7 @@ export function DiagnosisDashboard({ initialAnomaly }) {
           const payload = {
               query: autoQuery,
               provider: provider,
-              config: config,
+              config: {},
               anomaly_context: anomaly
           };
   
@@ -100,6 +94,16 @@ export function DiagnosisDashboard({ initialAnomaly }) {
       console.error("Failed to fetch manual", e);
     } finally {
       setManualLoading(false);
+    }
+  };
+
+  const fetchProvider = async () => {
+    try {
+      const res = await fetch('http://localhost:8000/api/llm/config');
+      const data = await res.json();
+      setProvider(data.llm_provider || 'ollama');
+    } catch (e) {
+      // ignore; keep default
     }
   };
 
@@ -141,7 +145,7 @@ export function DiagnosisDashboard({ initialAnomaly }) {
       const payload = {
         query: userMsg.content,
         provider: provider,
-        config: config,
+        config: {},
         anomaly_context: currentAnomaly
       };
 
@@ -204,24 +208,6 @@ export function DiagnosisDashboard({ initialAnomaly }) {
           }}
         >
           <FileText size={18} /> Machine Manual
-        </button>
-        <button 
-          className={`btn ${activeTab === 'settings' ? 'active' : ''}`}
-          onClick={() => setActiveTab('settings')}
-          style={{ 
-            display: 'flex', 
-            alignItems: 'center', 
-            gap: '0.5rem', 
-            background: activeTab === 'settings' ? 'var(--primary)' : 'rgba(255,255,255,0.05)',
-            color: activeTab === 'settings' ? 'white' : 'var(--text-muted)',
-            border: activeTab === 'settings' ? 'none' : '1px solid rgba(255,255,255,0.1)',
-            padding: '0.5rem 1rem',
-            borderRadius: '6px',
-            cursor: 'pointer',
-            transition: 'all 0.2s'
-          }}
-        >
-          <Settings size={18} /> LLM Settings
         </button>
       </div>
 
@@ -305,60 +291,6 @@ export function DiagnosisDashboard({ initialAnomaly }) {
                   onChange={(e) => setManualText(e.target.value)}
                   style={{ flex: 1, background: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border)', borderRadius: '4px', padding: '1rem', fontFamily: 'monospace' }}
                 />
-            )}
-          </div>
-        )}
-
-        {/* SETTINGS TAB */}
-        {activeTab === 'settings' && (
-          <div style={{ padding: '2rem', maxWidth: '600px', margin: '0 auto' }}>
-            <h3>LLM Provider Configuration</h3>
-            
-            <div className="form-group" style={{ marginBottom: '1.5rem' }}>
-              <label>Provider Model</label>
-              <select 
-                value={provider} 
-                onChange={(e) => setProvider(e.target.value)}
-                className="form-control"
-              >
-                <option value="ollama">Local (Ollama)</option>
-                <option value="gemini">Remote (Google Gemini)</option>
-              </select>
-            </div>
-
-            {provider === 'ollama' && (
-              <>
-                <div className="form-group" style={{ marginBottom: '1rem' }}>
-                  <label>Ollama URL</label>
-                  <input 
-                    type="text" 
-                    value={config.url}
-                    onChange={(e) => setConfig({...config, url: e.target.value})}
-                    className="form-control"
-                  />
-                </div>
-                <div className="form-group" style={{ marginBottom: '1rem' }}>
-                  <label>Model Name</label>
-                  <input 
-                    type="text" 
-                    value={config.model}
-                    onChange={(e) => setConfig({...config, model: e.target.value})}
-                    className="form-control"
-                  />
-                </div>
-              </>
-            )}
-
-            {provider === 'gemini' && (
-              <div className="form-group" style={{ marginBottom: '1rem' }}>
-                <label>API Key</label>
-                <input 
-                  type="password" 
-                  value={config.apiKey}
-                  onChange={(e) => setConfig({...config, apiKey: e.target.value})}
-                  className="form-control"
-                />
-              </div>
             )}
           </div>
         )}

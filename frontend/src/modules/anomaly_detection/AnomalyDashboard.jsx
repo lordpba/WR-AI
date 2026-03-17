@@ -13,6 +13,12 @@ export function AnomalyDashboard({ onDiagnose }) {
   const [events, setEvents] = useState([]);
   const [status, setStatus] = useState({ status: 'init', model_ready: false });
   const [stats, setStats] = useState(null);
+  const [sourceMode, setSourceMode] = useState('realtime');
+  const [rangeFrom, setRangeFrom] = useState(() => {
+    const d = new Date(Date.now() - 6 * 3600 * 1000);
+    return d.toISOString().slice(0, 16);
+  });
+  const [rangeTo, setRangeTo] = useState(() => new Date().toISOString().slice(0, 16));
   const [loading, setLoading] = useState(false);
   const [mlAnalyzing, setMlAnalyzing] = useState(false);
   const [mlResult, setMlResult] = useState(null);
@@ -23,30 +29,50 @@ export function AnomalyDashboard({ onDiagnose }) {
   const [showDataMgmt, setShowDataMgmt] = useState(false);
   const [clearLoading, setClearLoading] = useState(false);
   const [exportLoading, setExportLoading] = useState(false);
+  const [importing, setImporting] = useState(false);
 
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [historyRes, eventsRes, statusRes, statsRes] = await Promise.all([
+      const [historyRes, eventsRes, statusRes, statsRes, sourceRes] = await Promise.all([
         fetch('http://localhost:8000/api/anomaly/stream?limit=1000'), // Fetch large history
         fetch('http://localhost:8000/api/anomaly/events'),
         fetch('http://localhost:8000/api/anomaly/status'),
-        fetch('http://localhost:8000/api/anomaly/stats')
+        fetch('http://localhost:8000/api/anomaly/stats'),
+        fetch('http://localhost:8000/api/anomaly/source')
       ]);
 
       const hData = await historyRes.json();
       const eventsData = await eventsRes.json();
       const statusData = await statusRes.json();
       const statsData = await statsRes.json();
+      const sourceData = await sourceRes.json();
 
       setHistoryData(hData);
       setEvents(eventsData);
       setStatus(statusData);
       setStats(statsData.stats);
+      setSourceMode(sourceData.mode || 'realtime');
     } catch (e) {
       console.error("Anomaly Module fetch error", e);
     } finally {
         setLoading(false);
+    }
+  };
+
+  const fetchHistoryRange = async () => {
+    try {
+      setLoading(true);
+      const tsFrom = Math.floor(new Date(rangeFrom).getTime() / 1000);
+      const tsTo = Math.floor(new Date(rangeTo).getTime() / 1000);
+      const res = await fetch(`http://localhost:8000/api/anomaly/history?ts_from=${tsFrom}&ts_to=${tsTo}&limit=50000`);
+      const data = await res.json();
+      setHistoryData(Array.isArray(data) ? data : []);
+      // When loading from DB, we keep existing events list (can be empty)
+    } catch (e) {
+      console.error("Failed to load history range", e);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -140,6 +166,53 @@ export function AnomalyDashboard({ onDiagnose }) {
     }
   };
 
+  const importXlsx = async (file) => {
+    if (!file) return;
+    try {
+      setImporting(true);
+      const form = new FormData();
+      form.append('file', file);
+      form.append('electrical_mode', 'three_phase');
+      form.append('max_points', '1000');
+
+      const res = await fetch('http://localhost:8000/api/anomaly/import/xlsx', {
+        method: 'POST',
+        body: form
+      });
+      const result = await res.json();
+      if (res.ok && result.status === 'success') {
+        alert(`✅ Import OK\nRows: ${result.import_summary?.rows_imported}\nLoaded: ${result.points_loaded}\nMode: ${result.mode}`);
+        fetchData();
+      } else {
+        alert(`Import failed: ${result.detail || 'Unknown error'}`);
+      }
+    } catch (e) {
+      console.error("Import failed", e);
+      alert('Import failed. Check console for details.');
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  const switchToRealtime = async () => {
+    try {
+      await fetch('http://localhost:8000/api/anomaly/source', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify('realtime')
+      });
+      // Reset baseline/history when going back to realtime
+      await fetch('http://localhost:8000/api/anomaly/clear-history', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ confirm: true })
+      });
+      fetchData();
+    } catch (e) {
+      console.error("Failed to switch to realtime", e);
+    }
+  };
+
   const clearEventsData = async () => {
     if (!window.confirm('⚠️ This will clear the event log from memory.\n\nContinue?')) {
       return;
@@ -157,7 +230,7 @@ export function AnomalyDashboard({ onDiagnose }) {
         alert(`✅ ${result.message}\nCleared ${result.events_deleted} events`);
         fetchData(); // Refresh data
       } else {
-        alert(`Failed: ${result.message}`);
+        alert(`Failed: ${result.message || result.detail || 'Unknown error'}`);
       }
     } catch (e) {
       console.error("Clear events failed", e);
@@ -173,6 +246,13 @@ export function AnomalyDashboard({ onDiagnose }) {
     return () => clearInterval(interval);
   }, []);
 
+  const hasVibration = historyData.some(d => d.vibration !== undefined && d.vibration !== null);
+  const hasTemperature = historyData.some(d => d.temperature !== undefined && d.temperature !== null);
+  const hasVoltage = historyData.some(d => d.voltage_v !== undefined && d.voltage_v !== null);
+  const hasCurrent = historyData.some(d => d.current_a !== undefined && d.current_a !== null);
+  const hasPowerFactor = historyData.some(d => d.power_factor !== undefined && d.power_factor !== null);
+  const hasEnergyTotal = historyData.some(d => d.energy_total_kwh !== undefined && d.energy_total_kwh !== null);
+
   return (
     <div className="dashboard-grid">
       
@@ -183,20 +263,42 @@ export function AnomalyDashboard({ onDiagnose }) {
             <div>
                 <strong>Anomaly Detection - Statistical Baseline Mode</strong>
                 <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                  Real-time monitoring with statistical thresholds. Use ML Analysis for deeper insights.
+                  Source: <strong>{sourceMode}</strong>. Realtime monitoring with statistical thresholds. Use ML Analysis for deeper insights.
                 </div>
             </div>
          </div>
          <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+             <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+               <input
+                 type="datetime-local"
+                 value={rangeFrom}
+                 onChange={(e) => setRangeFrom(e.target.value)}
+                 className="form-control"
+                 style={{ minWidth: 190 }}
+               />
+               <span style={{ color: 'var(--text-muted)' }}>→</span>
+               <input
+                 type="datetime-local"
+                 value={rangeTo}
+                 onChange={(e) => setRangeTo(e.target.value)}
+                 className="form-control"
+                 style={{ minWidth: 190 }}
+               />
+               <button onClick={fetchHistoryRange} className="btn" disabled={loading}>
+                 Load interval
+               </button>
+             </div>
+             {/* Upload moved to Data Management panel */}
+             <button onClick={switchToRealtime} className="btn" disabled={loading || sourceMode === 'realtime'}>
+               Back to realtime
+             </button>
              <button onClick={() => setShowMLSettings(!showMLSettings)} className="btn" style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                  <Settings size={16} /> ML Analysis
              </button>
              <button onClick={() => setShowDataMgmt(!showDataMgmt)} className="btn" style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                 <Download size={16} /> Data
+                 <Download size={16} /> Data Management
              </button>
-             <button onClick={fetchData} className="btn" disabled={loading}>
-                 {loading ? 'Refreshing...' : 'Refresh Data'}
-             </button>
+             {/* Refresh moved to Data Management panel */}
          </div>
       </div>
 
@@ -268,6 +370,24 @@ export function AnomalyDashboard({ onDiagnose }) {
           <h3 style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#ff6b6b' }}>
             <Download size={20} /> Data Management
           </h3>
+          <div style={{ marginBottom: '1rem', display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
+            <label className="btn" style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', cursor: importing ? 'not-allowed' : 'pointer', opacity: importing ? 0.6 : 1 }}>
+              <input
+                type="file"
+                accept=".xlsx,.xls"
+                style={{ display: 'none' }}
+                disabled={importing}
+                onChange={(e) => importXlsx(e.target.files?.[0])}
+              />
+              📄 {importing ? 'Importing...' : 'Upload XLSX'}
+            </label>
+            <button onClick={fetchHistoryRange} className="btn" disabled={loading}>
+              Load interval
+            </button>
+            <button onClick={fetchData} className="btn" disabled={loading}>
+              {loading ? 'Refreshing...' : 'Refresh Data'}
+            </button>
+          </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '2rem' }}>
             {/* Export Section */}
             <div style={{ padding: '1rem', backgroundColor: 'rgba(0, 242, 255, 0.1)', borderRadius: '4px', border: '1px solid rgba(0, 242, 255, 0.2)' }}>
@@ -408,48 +528,45 @@ export function AnomalyDashboard({ onDiagnose }) {
         </div>
       )}
 
-      <div style={{ gridColumn: 'span 12' }}>
-        <SignalChart 
-            data={historyData} 
-            dataKey="vibration" 
-            color="#00f2ff" 
-            title="Vibration History (History)" 
-            unit="mm/s"
-            stats={stats}
-            onPointClick={(point) => {
-              // Save selected vibration anomaly and also prepare for diagnosis
-              setSelectedVibrationAnomaly(point);
-              const evt = {
-                timestamp: point.timestamp,
-                type: 'WARNING',
-                message: `Vibration anomaly: ${point.anomaly.type} (${point.anomaly.deviation_sigma.toFixed(1)}σ)`,
-                details: historyData.find(d => d.timestamp === point.timestamp)
-              };
-            }}
-        />
-      </div>
+      {hasVibration && (
+        <div style={{ gridColumn: 'span 12' }}>
+          <SignalChart 
+              data={historyData} 
+              dataKey="vibration" 
+              color="#00f2ff" 
+              title="Vibration History (History)" 
+              unit="mm/s"
+              stats={stats}
+              onPointClick={(point) => {
+                setSelectedVibrationAnomaly(point);
+              }}
+          />
+        </div>
+      )}
       
-      <div style={{ gridColumn: 'span 6' }}>
-        <SignalChart 
-            data={historyData} 
-            dataKey="temperature" 
-            color="#ff00cc" 
-            title="Temperature History (History)" 
-            unit="°C"
-            stats={stats}
-            onPointClick={(point) => {
-              const evt = {
-                timestamp: point.timestamp,
-                type: 'WARNING',
-                message: `Temperature anomaly: ${point.anomaly.type} (${point.anomaly.deviation_sigma.toFixed(1)}σ)`,
-                details: historyData.find(d => d.timestamp === point.timestamp)
-              };
-              onDiagnose && onDiagnose(evt);
-            }}
-        />
-      </div>
+      {hasTemperature && (
+        <div style={{ gridColumn: 'span 6' }}>
+          <SignalChart 
+              data={historyData} 
+              dataKey="temperature" 
+              color="#ff00cc" 
+              title="Temperature History (History)" 
+              unit="°C"
+              stats={stats}
+              onPointClick={(point) => {
+                const evt = {
+                  timestamp: point.timestamp,
+                  type: 'WARNING',
+                  message: `Temperature anomaly: ${point.anomaly.type} (${point.anomaly.deviation_sigma.toFixed(1)}σ)`,
+                  details: historyData.find(d => d.timestamp === point.timestamp)
+                };
+                onDiagnose && onDiagnose(evt);
+              }}
+          />
+        </div>
+      )}
 
-      <div style={{ gridColumn: 'span 6' }}>
+      <div style={{ gridColumn: hasTemperature ? 'span 6' : 'span 12' }}>
          <SignalChart 
             data={historyData} 
             dataKey="power" 
@@ -468,6 +585,59 @@ export function AnomalyDashboard({ onDiagnose }) {
             }}
         />
       </div>
+
+      {hasCurrent && (
+        <div style={{ gridColumn: 'span 6' }}>
+          <SignalChart 
+            data={historyData} 
+            dataKey="current_a" 
+            color="#00f2ff" 
+            title="Current (History)" 
+            unit="A"
+            stats={stats}
+          />
+        </div>
+      )}
+
+      {hasVoltage && (
+        <div style={{ gridColumn: 'span 6' }}>
+          <SignalChart 
+            data={historyData} 
+            dataKey="voltage_v" 
+            color="#ff00cc" 
+            title="Voltage (History)" 
+            unit="V"
+            stats={stats}
+          />
+        </div>
+      )}
+
+      {hasPowerFactor && (
+        <div style={{ gridColumn: 'span 6' }}>
+          <SignalChart 
+            data={historyData} 
+            dataKey="power_factor" 
+            color="#7cfc00" 
+            title="Power Factor (History)" 
+            unit=""
+            stats={stats}
+            domain={[0, 1.1]}
+          />
+        </div>
+      )}
+
+      {hasEnergyTotal && (
+        <div style={{ gridColumn: 'span 6' }}>
+          <SignalChart 
+            data={historyData} 
+            dataKey="energy_total_kwh" 
+            color="#ffa500" 
+            title="Energy Total (History)" 
+            unit="kWh"
+            stats={stats}
+          />
+        </div>
+      )}
 
       {/* Events Log */}
       <div className="card" style={{ gridColumn: 'span 12' }}>
@@ -500,7 +670,7 @@ export function AnomalyDashboard({ onDiagnose }) {
                             </td>
                             <td style={{ padding: '0.5rem' }}>{evt.message}</td>
                             <td style={{ padding: '0.5rem' }}>
-                                V: {evt.details.vibration?.toFixed(2)} | T: {evt.details.temperature?.toFixed(1)}
+                                P: {evt.details.power != null ? evt.details.power.toFixed(2) : '-'} | V: {evt.details.voltage_v != null ? evt.details.voltage_v.toFixed(1) : '-'} | I: {evt.details.current_a != null ? evt.details.current_a.toFixed(2) : '-'}
                             </td>
                             <td style={{ padding: '0.5rem' }}>
                                 <button 

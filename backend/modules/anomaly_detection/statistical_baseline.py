@@ -4,7 +4,7 @@ Uses rolling statistics (mean, std, min, max) to detect anomalies without ML ove
 """
 import numpy as np
 from collections import deque
-from typing import Dict, List, Tuple, Optional
+from typing import Any, Dict, List, Tuple, Optional
 import logging
 
 logger = logging.getLogger(__name__)
@@ -25,17 +25,9 @@ class StatisticalBaseline:
         self.window_size = window_size
         self.sigma_threshold = sigma_threshold
         
-        # Separate buffers for each signal
-        self.temperature_buffer = deque(maxlen=window_size)
-        self.vibration_buffer = deque(maxlen=window_size)
-        self.power_buffer = deque(maxlen=window_size)
-        
-        # Statistics cache
-        self.stats = {
-            'temperature': {},
-            'vibration': {},
-            'power': {}
-        }
+        # Rolling buffers per signal name (dynamic)
+        self.buffers: Dict[str, deque] = {}
+        self.stats: Dict[str, Dict[str, Any]] = {}
         
         self.is_calibrated = False
         self.min_samples_for_calibration = 30  # Need at least 30 samples for meaningful stats
@@ -47,41 +39,65 @@ class StatisticalBaseline:
         Returns:
             Dict with status, risk_score, and detailed stats for each signal
         """
+        return self.add_signals(
+            {
+                "temperature": temperature,
+                "vibration": vibration,
+                "power": power,
+            }
+        )
+
+    def add_signals(self, signals: Dict[str, Any]) -> Dict:
+        """
+        Add a set of named signals (dynamic) and compute statistics/anomalies.
+
+        Args:
+            signals: dict of signal_name -> numeric value (non-numeric are ignored)
+        """
+        numeric_signals: Dict[str, float] = {}
+        for k, v in (signals or {}).items():
+            if v is None:
+                continue
+            try:
+                fv = float(v)
+            except Exception:
+                continue
+            if not np.isfinite(fv):
+                continue
+            numeric_signals[k] = fv
+
         # Add to buffers
-        self.temperature_buffer.append(temperature)
-        self.vibration_buffer.append(vibration)
-        self.power_buffer.append(power)
-        
-        # Check if calibrated
-        if not self.is_calibrated and len(self.temperature_buffer) >= self.min_samples_for_calibration:
+        for name, value in numeric_signals.items():
+            if name not in self.buffers:
+                self.buffers[name] = deque(maxlen=self.window_size)
+            self.buffers[name].append(value)
+
+        # Determine sample count for calibration (use max buffer length)
+        sample_count = max((len(b) for b in self.buffers.values()), default=0)
+        if not self.is_calibrated and sample_count >= self.min_samples_for_calibration:
             self.is_calibrated = True
-            logger.info(f"Statistical baseline calibrated with {len(self.temperature_buffer)} samples")
-        
+            logger.info(f"Statistical baseline calibrated with {sample_count} samples")
+
         # Compute statistics
-        self.stats['temperature'] = self._compute_stats(list(self.temperature_buffer))
-        self.stats['vibration'] = self._compute_stats(list(self.vibration_buffer))
-        self.stats['power'] = self._compute_stats(list(self.power_buffer))
-        
+        for name, buf in self.buffers.items():
+            self.stats[name] = self._compute_stats(list(buf))
+
         # Detect anomalies
         if self.is_calibrated:
-            anomalies = self._detect_anomalies(temperature, vibration, power)
+            anomalies = self._detect_anomalies_dynamic(numeric_signals)
             status, risk_score = self._compute_status(anomalies)
         else:
             anomalies = {}
             status = "calibrating"
             risk_score = 0.0
-        
+
         return {
-            'status': status,
-            'risk_score': risk_score,
-            'is_calibrated': self.is_calibrated,
-            'stats': self.stats,
-            'anomalies': anomalies,
-            'current_values': {
-                'temperature': temperature,
-                'vibration': vibration,
-                'power': power
-            }
+            "status": status,
+            "risk_score": risk_score,
+            "is_calibrated": self.is_calibrated,
+            "stats": self.stats,
+            "anomalies": anomalies,
+            "current_values": numeric_signals,
         }
     
     def _compute_stats(self, data: List[float]) -> Dict:
@@ -106,72 +122,35 @@ class StatisticalBaseline:
             'sample_count': len(data)
         }
     
-    def _detect_anomalies(self, temperature: float, vibration: float, power: float) -> Dict:
-        """
-        Check if current values are anomalous based on statistical bounds.
-        
-        Returns:
-            Dict with anomaly flags and deviation levels for each signal
-        """
-        anomalies = {}
-        
-        # Check temperature
-        temp_stats = self.stats['temperature']
-        if temperature > temp_stats['upper_bound']:
-            deviation = (temperature - temp_stats['mean']) / temp_stats['std'] if temp_stats['std'] > 0 else 0
-            anomalies['temperature'] = {
-                'type': 'high',
-                'value': temperature,
-                'deviation_sigma': deviation,
-                'threshold': temp_stats['upper_bound']
-            }
-        elif temperature < temp_stats['lower_bound']:
-            deviation = (temp_stats['mean'] - temperature) / temp_stats['std'] if temp_stats['std'] > 0 else 0
-            anomalies['temperature'] = {
-                'type': 'low',
-                'value': temperature,
-                'deviation_sigma': deviation,
-                'threshold': temp_stats['lower_bound']
-            }
-        
-        # Check vibration
-        vib_stats = self.stats['vibration']
-        if vibration > vib_stats['upper_bound']:
-            deviation = (vibration - vib_stats['mean']) / vib_stats['std'] if vib_stats['std'] > 0 else 0
-            anomalies['vibration'] = {
-                'type': 'high',
-                'value': vibration,
-                'deviation_sigma': deviation,
-                'threshold': vib_stats['upper_bound']
-            }
-        elif vibration < vib_stats['lower_bound']:
-            deviation = (vib_stats['mean'] - vibration) / vib_stats['std'] if vib_stats['std'] > 0 else 0
-            anomalies['vibration'] = {
-                'type': 'low',
-                'value': vibration,
-                'deviation_sigma': deviation,
-                'threshold': vib_stats['lower_bound']
-            }
-        
-        # Check power
-        power_stats = self.stats['power']
-        if power > power_stats['upper_bound']:
-            deviation = (power - power_stats['mean']) / power_stats['std'] if power_stats['std'] > 0 else 0
-            anomalies['power'] = {
-                'type': 'high',
-                'value': power,
-                'deviation_sigma': deviation,
-                'threshold': power_stats['upper_bound']
-            }
-        elif power < power_stats['lower_bound']:
-            deviation = (power_stats['mean'] - power) / power_stats['std'] if power_stats['std'] > 0 else 0
-            anomalies['power'] = {
-                'type': 'low',
-                'value': power,
-                'deviation_sigma': deviation,
-                'threshold': power_stats['lower_bound']
-            }
-        
+    def _detect_anomalies_dynamic(self, signals: Dict[str, float]) -> Dict:
+        anomalies: Dict[str, Dict[str, Any]] = {}
+        for name, value in (signals or {}).items():
+            s = self.stats.get(name)
+            if not s:
+                continue
+            upper = s.get("upper_bound")
+            lower = s.get("lower_bound")
+            mean = s.get("mean", 0.0)
+            std = s.get("std", 0.0) or 0.0
+            if upper is None or lower is None:
+                continue
+
+            if value > upper:
+                deviation = (value - mean) / std if std > 0 else 0.0
+                anomalies[name] = {
+                    "type": "high",
+                    "value": value,
+                    "deviation_sigma": deviation,
+                    "threshold": upper,
+                }
+            elif value < lower:
+                deviation = (mean - value) / std if std > 0 else 0.0
+                anomalies[name] = {
+                    "type": "low",
+                    "value": value,
+                    "deviation_sigma": deviation,
+                    "threshold": lower,
+                }
         return anomalies
     
     def _compute_status(self, anomalies: Dict) -> Tuple[str, float]:
@@ -212,7 +191,7 @@ class StatisticalBaseline:
             'is_calibrated': self.is_calibrated,
             'window_size': self.window_size,
             'sigma_threshold': self.sigma_threshold,
-            'sample_count': len(self.temperature_buffer),
+            'sample_count': max((len(b) for b in self.buffers.values()), default=0),
             'stats': self.stats
         }
 

@@ -3,6 +3,7 @@ import logging
 import requests
 import google.generativeai as genai
 from pathlib import Path
+from .config_store import get_config
 
 # Load environment variables
 try:
@@ -19,8 +20,13 @@ class LLMClient:
 
 class OllamaClient(LLMClient):
     def __init__(self, base_url=None, model=None):
-        self.base_url = base_url or os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
-        self.model = model or os.getenv("OLLAMA_MODEL", "llama3.1:latest")
+        cfg = {}
+        try:
+            cfg = get_config()
+        except Exception:
+            cfg = {}
+        self.base_url = base_url or cfg.get("ollama_base_url") or os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+        self.model = model or cfg.get("ollama_model") or os.getenv("OLLAMA_MODEL", "llama3.1:latest")
         logger.info(f"Ollama client initialized: {self.base_url} with model {self.model}")
 
     def generate(self, prompt: str, system_context: str = ""):
@@ -48,12 +54,19 @@ class OllamaClient(LLMClient):
 
 class GeminiClient(LLMClient):
     def __init__(self, api_key=None):
-        self.api_key = api_key or os.getenv("GEMINI_API_KEY", "")
+        cfg = {}
+        try:
+            cfg = get_config()
+        except Exception:
+            cfg = {}
+
+        self.api_key = api_key or cfg.get("gemini_api_key") or os.getenv("GEMINI_API_KEY", "")
         if not self.api_key:
             logger.warning("Gemini API key not configured")
         else:
             genai.configure(api_key=self.api_key)
-            self.model = genai.GenerativeModel('gemini-pro')
+            model_name = cfg.get("gemini_model") or os.getenv("GEMINI_MODEL", "gemini-1.5-pro")
+            self.model = genai.GenerativeModel(model_name)
             logger.info("Gemini client initialized")
 
     def generate(self, prompt: str, system_context: str = ""):

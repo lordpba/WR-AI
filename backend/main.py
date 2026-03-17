@@ -3,11 +3,17 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import asyncio
-from modules.foundation.simulator import simulator
 from modules.foundation.router import router as foundation_router
 from modules.anomaly_detection.router import router as anomaly_router
 from modules.guided_diagnosis.router import router as diagnosis_router
+from modules.guided_diagnosis.config_router import router as llm_config_router
 from modules.anomaly_detection.database import init_database
+from modules.realtime.database import init_database as init_realtime_db
+from modules.realtime.collector import collector
+from modules.realtime.router import router as realtime_router
+from modules.realtime.config_store import init_db as init_realtime_config_db
+from modules.realtime.config_router import router as realtime_config_router
+from modules.guided_diagnosis.config_store import init_db as init_llm_config_db
 
 # Configure logging
 logging.basicConfig(
@@ -24,20 +30,21 @@ async def lifespan(app: FastAPI):
     
     # Initialize database
     init_database()
+    init_realtime_db()
+    init_llm_config_db()
+    init_realtime_config_db()
     logger.info("📦 Database initialized")
     
-    # Import service here to avoid circular imports
-    from modules.anomaly_detection.service import service as anomaly_service
-    
     # Start background tasks
-    asyncio.create_task(run_simulation())
-    asyncio.create_task(anomaly_service.start_loop())
+    collector_task = await collector.start()
     logger.info("✅ All services started")
     
     yield  # Application runs here
     
     # Shutdown
     logger.info("🛑 WR-AI Backend Shutting down...")
+    # Ensure collector loop is stopped and connections closed
+    await collector.stop()
 
 app = FastAPI(lifespan=lifespan)
 
@@ -54,13 +61,9 @@ app.add_middleware(
 app.include_router(foundation_router)
 app.include_router(anomaly_router)
 app.include_router(diagnosis_router)
-
-async def run_simulation():
-    """Background task for PLC simulation"""
-    logger.info("🏭 Simulation loop started")
-    while True:
-        simulator.update()
-        await asyncio.sleep(1)
+app.include_router(realtime_router)
+app.include_router(llm_config_router)
+app.include_router(realtime_config_router)
 
 if __name__ == "__main__":
     import uvicorn
